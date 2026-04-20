@@ -24,7 +24,7 @@ import { RabbitMQService } from './rabbitmq.service';
             transport: Transport.RMQ,
             options: {
                 urls: [configService.getOrThrow<string>('RABBITMQ_URI')],
-                queue: configService.getOrThrow<string>('RABBITMQ_JAC_QUEUE'),
+                queue: 'colaJac',
                 queueOptions: {
                     durable: true,
                 },
@@ -40,7 +40,7 @@ import { RabbitMQService } from './rabbitmq.service';
             transport: Transport.RMQ,
             options: {
                 urls: [configService.getOrThrow<string>('RABBITMQ_URI')],
-                queue: configService.getOrThrow<string>('RABBITMQ_JAC_QUEUE'),
+                queue: 'colaAsocomunales',
                 queueOptions: {
                     durable: true,
                 },

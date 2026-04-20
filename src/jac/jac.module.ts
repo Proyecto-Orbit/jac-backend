@@ -15,13 +15,18 @@ import { JAC } from './entities/jac.entity';
 import { JacService } from './jac.service';
 import { JacController } from './jac.controller';
 import { RabbitMQModule } from '../rabbitmq/rabbitmq.module';
+import { RabbitMQController } from '../rabbitmq/rabbitmq.controller';
+import { JacConsumer } from './infrastructure/messaging/jac.consumer';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([JAC]), // Registrar entidad
     RabbitMQModule,                   // Para notificaciones
   ],
-  controllers: [JacController],
+  controllers: [JacController,
+    JacConsumer, // Para consumir eventos de Asocomunal
+    RabbitMQController,
+  ],
   providers: [JacService],
   exports: [JacService], // Disponible para otros módulos
 })

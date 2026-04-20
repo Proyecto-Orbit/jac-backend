@@ -67,7 +67,7 @@ export class RabbitMQService implements OnModuleInit {
       asocomunalId: jacData.asocomunalId,
       action: 'created',
       timestamp: new Date(),
-    }, 'jac.created.event');
+    }, 'jac.events');
   }
 
   /**
@@ -81,7 +81,7 @@ export class RabbitMQService implements OnModuleInit {
       asocomunalId: jacData.asocomunalId,
       action: 'updated',
       timestamp: new Date(),
-    }, 'jac.updated.event');
+    }, 'jac.events');
   }
 
   /**
@@ -95,6 +95,6 @@ export class RabbitMQService implements OnModuleInit {
       asocomunalId: null,
       action: 'deleted',
       timestamp: new Date(),
-    }, 'jac.deleted.event');
+    }, 'jac.events');
   }
 }
