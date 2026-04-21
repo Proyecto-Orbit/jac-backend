@@ -11,6 +11,7 @@
  */
 import { Injectable, Inject, OnModuleInit } from '@nestjs/common';
 import { ClientRMQ } from '@nestjs/microservices';
+import { lastValueFrom } from 'rxjs';
 
 /**
  * DTO para eventos enviados a Asocomunales
@@ -48,7 +49,8 @@ export class RabbitMQService implements OnModuleInit {
    */
   private async publishEvent(event: JACEventDto, pattern: string): Promise<void> {
     try {
-      await this.jacProviderClient.emit(pattern, event);
+      // ClientRMQ.emit retorna un Observable; lo convertimos para capturar errores reales de publicación.
+      await lastValueFrom(this.jacProviderClient.emit(pattern, event), { defaultValue: undefined });
       console.log(`Evento publicado: ${pattern} - JAC ${event.id}`);
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido';

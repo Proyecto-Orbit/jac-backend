@@ -22,4 +22,8 @@ async function bootstrap() {
   await app.startAllMicroservices(); 
   await app.listen(process.env.PORT || 3001);
 }
-bootstrap();
+bootstrap().catch((error: unknown) => {
+  const errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
+  console.error('Error durante el arranque de la aplicación:', errorMessage);
+  process.exit(1);
+});

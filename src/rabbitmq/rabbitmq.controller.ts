@@ -7,7 +7,7 @@
  * @decorator @EventPattern() - Define qué patrón de mensaje escuchar
  * @decorator @Payload() - Extrae los datos del mensaje
  */
-import { Controller } from '@nestjs/common';
+import { Controller, Inject } from '@nestjs/common';
 import { EventPattern, Payload } from '@nestjs/microservices';
 
 /**
@@ -35,45 +35,11 @@ interface JACEventDto {
 
 @Controller()
 export class RabbitMQController {
-  
-  /**
-   * CONSUMER: Escuchar eventos de Asocomunales
-   * Patrón: asocomunal.event (o el que use Felipe)
-   * Cola: colaAsocomunales o asocomunal_queue
-   */
-  @EventPattern('asocomunal.event')
-  async handleAsocomunalEvent(@Payload() data: AsocomunalEventDto) {
-    console.log('📩 [CONSUMER] Evento recibido de Asocomunales:', data);
-    
-    try {
-      switch (data.action) {
-        case 'created':
-          console.log(`✅ Crear Asocomunal en tabla réplica: ${data.nombre} (ID: ${data.id})`);
-          // TODO: Implementar lógica para guardar en tabla réplica de Asocomunales
-          break;
-          
-        case 'updated':
-          console.log(`🔄 Actualizar Asocomunal en tabla réplica: ${data.nombre} (ID: ${data.id})`);
-          // TODO: Implementar lógica para actualizar en tabla réplica
-          break;
-          
-        case 'deleted':
-          console.log(`🗑️ Eliminar (lógico) Asocomunal en tabla réplica: ${data.nombre} (ID: ${data.id})`);
-          // TODO: Implementar eliminación lógica en tabla réplica
-          break;
-      }
-      
-      console.log('✅ Evento de Asocomunal procesado correctamente');
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      console.error('❌ Error procesando evento de Asocomunal:', errorMessage);
-    }
-  }
 
   /**
    * CONSUMER: Escuchar confirmaciones de JAC (opcional)
    * Patrón: jac.event
-   * Cola: colaJac o jac_queue
+   * Cola: colaAsocomunales
    */
   @EventPattern('jac.event')
   async handleJACEvent(@Payload() data: JACEventDto) {
@@ -83,14 +49,17 @@ export class RabbitMQController {
       switch (data.action) {
         case 'created':
           console.log(`✅ JAC creada confirmada: ${data.nombre} (ID: ${data.id})`);
+          await Promise.resolve(); // Simular procesamiento asincrono, se debe eliminar cuando se termine implementacion, se coloco por eslint rules.
           break;
           
         case 'updated':
           console.log(`🔄 JAC actualizada confirmada: ${data.nombre} (ID: ${data.id})`);
+          await Promise.resolve(); // Simular procesamiento asincrono, se debe eliminar cuando se termine implementacion, se coloco por eslint rules.
           break;
           
         case 'deleted':
           console.log(`🗑️ JAC eliminada (lógico) confirmada: ${data.nombre} (ID: ${data.id})`);
+          await Promise.resolve(); // Simular procesamiento asincrono, se debe eliminar cuando se termine implementacion, se coloco por eslint rules.
           break;
       }
       
