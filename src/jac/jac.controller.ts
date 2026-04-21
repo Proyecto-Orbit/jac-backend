@@ -25,6 +25,8 @@ import { JacService } from './jac.service';
 import { CreateJACDto } from './dto/create-jac.dto';
 import { UpdateJACDto } from './dto/update-jac.dto';
 import { JACResponseDto } from './dto/jac-response.dto';
+import { Auth } from '../auth/auth.decorator';
+import { Role } from '../auth/role.enum';
 
 @Controller('jac')
 export class JacController {
@@ -34,6 +36,7 @@ export class JacController {
    * POST /jac
    * Crear una nueva JAC
    */
+  @Auth(Role.ADMIN)
   @Post()
   create(@Body() createJACDto: CreateJACDto): Promise<JACResponseDto> {
     return this.jacService.create(createJACDto);
@@ -52,6 +55,7 @@ export class JacController {
    * GET /jac/:id
    * Obtener una JAC por ID
    */
+  @Auth(Role.ADMIN)
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number): Promise<JACResponseDto> {
     return this.jacService.findOne(id);
@@ -61,6 +65,7 @@ export class JacController {
    * PATCH /jac/:id
    * Actualizar una JAC
    */
+  @Auth(Role.ADMIN)
   @Patch(':id')
   update(
     @Param('id', ParseIntPipe) id: number,
@@ -73,6 +78,7 @@ export class JacController {
    * DELETE /jac/:id
    * Eliminación lógica de una JAC
    */
+  @Auth(Role.ADMIN)
   @Delete(':id')
   remove(@Param('id', ParseIntPipe) id: number): Promise<{ message: string }> {
     return this.jacService.remove(id);
@@ -82,6 +88,7 @@ export class JacController {
    * POST /jac/:id/associate-asocomunal
    * Asociar JAC a una Asocomunal
    */
+  @Auth(Role.ADMIN)
   @Post(':id/associate-asocomunal')
   associateAsocomunal(
     @Param('id', ParseIntPipe) id: number,

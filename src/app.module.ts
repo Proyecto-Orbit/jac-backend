@@ -8,10 +8,12 @@
  * - RabbitMQModule: Para comunicación entre microservicios
  */
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { JacModule } from './jac/jac.module';
 import { RabbitMQModule } from './rabbitmq/rabbitmq.module';
+import { RolesGuard } from './auth/roles.guard';
 
 @Module({
   imports: [
@@ -42,6 +44,9 @@ import { RabbitMQModule } from './rabbitmq/rabbitmq.module';
     // Módulos de la aplicación
     JacModule,        // Módulo de JACs (CRUD)
     RabbitMQModule,   // Módulo de RabbitMQ (colas)
+  ],
+  providers: [
+    { provide: APP_GUARD, useClass: RolesGuard },
   ],
 })
 export class AppModule {}
