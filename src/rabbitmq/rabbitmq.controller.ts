@@ -7,7 +7,7 @@
  * @decorator @EventPattern() - Define qué patrón de mensaje escuchar
  * @decorator @Payload() - Extrae los datos del mensaje
  */
-import { Controller, Inject } from '@nestjs/common';
+import { Controller } from '@nestjs/common';
 import { EventPattern, Payload } from '@nestjs/microservices';
 
 /**
@@ -35,6 +35,42 @@ interface JACEventDto {
 
 @Controller()
 export class RabbitMQController {
+ /**
+   * CONSUMER: Escuchar eventos de Asocomunales
+   * Patrón: asocomunal.event (o el que use Felipe)
+   * Cola: colaAsocomunales o asocomunal_queue
+   */
+  @EventPattern('asocomunal.event')
+  async handleAsocomunalEvent(@Payload() data: AsocomunalEventDto) {
+    console.log('📩 [CONSUMER] Evento recibido de Asocomunales:', data);
+    
+    try {
+      switch (data.action) {
+        case 'created':
+          console.log(`✅ Crear Asocomunal en tabla réplica: ${data.nombre} (ID: ${data.id})`);
+          await Promise.resolve();
+          // TODO: Implementar lógica para guardar en tabla réplica de Asocomunales
+          break;
+          
+        case 'updated':
+          console.log(`🔄 Actualizar Asocomunal en tabla réplica: ${data.nombre} (ID: ${data.id})`);
+          await Promise.resolve();
+          // TODO: Implementar lógica para actualizar en tabla réplica
+          break;
+          
+        case 'deleted':
+          console.log(`🗑️ Eliminar (lógico) Asocomunal en tabla réplica: ${data.nombre} (ID: ${data.id})`);
+          await Promise.resolve();
+          // TODO: Implementar eliminación lógica en tabla réplica
+          break;
+      }
+      
+      console.log('✅ Evento de Asocomunal procesado correctamente');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      console.error('❌ Error procesando evento de Asocomunal:', errorMessage);
+    }
+  }
 
   /**
    * CONSUMER: Escuchar confirmaciones de JAC (opcional)

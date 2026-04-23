@@ -14,6 +14,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { JacModule } from './jac/jac.module';
 import { RabbitMQModule } from './rabbitmq/rabbitmq.module';
 import { RolesGuard } from './auth/roles.guard';
+import { AfiliadosModule } from './afiliados/afiliados.module';
 
 @Module({
   imports: [
@@ -42,8 +43,9 @@ import { RolesGuard } from './auth/roles.guard';
     }),
     
     // Módulos de la aplicación
-    JacModule,        // Módulo de JACs (CRUD)
-    RabbitMQModule,   // Módulo de RabbitMQ (colas)
+    JacModule,
+    AfiliadosModule,
+    RabbitMQModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: RolesGuard },
