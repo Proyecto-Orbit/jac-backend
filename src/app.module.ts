@@ -15,6 +15,7 @@ import { JacModule } from './jac/jac.module';
 import { RabbitMQModule } from './rabbitmq/rabbitmq.module';
 import { RolesGuard } from './auth/roles.guard';
 import { AfiliadosModule } from './afiliados/afiliados.module';
+import { AsocomunalModule } from './asocomunal/asocomunal.module';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { AfiliadosModule } from './afiliados/afiliados.module';
     // Módulos de la aplicación
     JacModule,
     AfiliadosModule,
+    AsocomunalModule,
     RabbitMQModule,
   ],
   providers: [

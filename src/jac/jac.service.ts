@@ -1,50 +1,81 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { JAC } from './entities/jac.entity';
+import { EstadoJAC, JAC } from './entities/jac.entity';
 import { CreateJACDto } from './dto/create-jac.dto';
 import { UpdateJACDto } from './dto/update-jac.dto';
 import { JACResponseDto } from './dto/jac-response.dto';
+import { SearchJACDto } from './dto/search-jac.dto';
 import { RabbitMQService } from '../rabbitmq/rabbitmq.service';
 
-const ESTADO_ACTIVA = 1;
-const ESTADO_INACTIVA = 2;
-
+/**
+ * Servicio de negocio para la gestión de JACs.
+ *
+ * @remarks
+ * Implementa CRUD completo más búsqueda filtrada.
+ * Notifica al microservicio de Asocomunales vía RabbitMQ en cada
+ * operación de escritura (create / update / remove).
+ */
 @Injectable()
 export class JacService {
+  private readonly logger = new Logger(JacService.name);
+
   constructor(
     @InjectRepository(JAC)
     private readonly jacRepository: Repository<JAC>,
     private readonly rabbitMQService: RabbitMQService,
   ) {}
 
+  /**
+   * Crea una nueva JAC y notifica al microservicio de Asocomunales.
+   *
+   * @param createJACDto - Datos validados de la nueva JAC.
+   * @returns La JAC recién creada como {@link JACResponseDto}.
+   */
   async create(createJACDto: CreateJACDto): Promise<JACResponseDto> {
     const jac = this.jacRepository.create({
       ...createJACDto,
-      estadoId: createJACDto.estadoId ?? ESTADO_ACTIVA,
+      estado: createJACDto.estado ?? EstadoJAC.ACTIVA,
     });
-    const savedJac = await this.jacRepository.save(jac);
+    const saved = await this.jacRepository.save(jac);
 
     await this.rabbitMQService.notifyJACCreated({
-      id: savedJac.id,
-      nombre: savedJac.nombreCompleto,
-      asocomunalId: null,
+      id: saved.id,
+      nombre: saved.nombreCompleto,
+      asocomunalId: saved.asocomunalId,
     });
 
-    return JACResponseDto.fromEntity(savedJac);
+    return JACResponseDto.fromEntity(saved);
   }
 
+  /**
+   * Retorna todas las JACs **activas** ordenadas por nombre completo.
+   *
+   * @remarks
+   * Incluye los datos de la Asocomunal vinculada cuando existe.
+   *
+   * @returns Array de {@link JACResponseDto}.
+   */
   async findAll(): Promise<JACResponseDto[]> {
     const jacs = await this.jacRepository.find({
-      where: { estadoId: ESTADO_ACTIVA },
+      where: { estado: EstadoJAC.ACTIVA },
+      relations: ['asocomunal'],
       order: { nombreCompleto: 'ASC' },
     });
     return JACResponseDto.fromEntities(jacs);
   }
 
+  /**
+   * Recupera una JAC **activa** por su identificador.
+   *
+   * @param id - Identificador de la JAC.
+   * @returns La JAC encontrada como {@link JACResponseDto}.
+   * @throws {NotFoundException} Si no existe o su estado no es `activa`.
+   */
   async findOne(id: number): Promise<JACResponseDto> {
     const jac = await this.jacRepository.findOne({
-      where: { id, estadoId: ESTADO_ACTIVA },
+      where: { id, estado: EstadoJAC.ACTIVA },
+      relations: ['asocomunal'],
     });
 
     if (!jac) {
@@ -54,6 +85,55 @@ export class JacService {
     return JACResponseDto.fromEntity(jac);
   }
 
+  /**
+   * Busca JACs aplicando filtros opcionales.
+   *
+   * @remarks
+   * - `nombre`: LIKE parcial en `nombre_completo` y `nombre_corto`.
+   * - `municipio`: LIKE parcial en `municipio_nombre` de la Asocomunal vinculada.
+   *   Las JACs sin Asocomunal asignada no aparecerán al usar este filtro.
+   * - `estado`: si se omite se retornan JACs en cualquier estado.
+   *
+   * @param filters - Criterios de búsqueda definidos en {@link SearchJACDto}.
+   * @returns Array de {@link JACResponseDto} que coinciden con los filtros.
+   */
+  async search(filters: SearchJACDto): Promise<JACResponseDto[]> {
+    const qb = this.jacRepository
+      .createQueryBuilder('jac')
+      .leftJoinAndSelect('jac.asocomunal', 'asocomunal');
+
+    if (filters.nombre) {
+      const termino = `%${filters.nombre.toLowerCase()}%`;
+      qb.andWhere(
+        '(LOWER(jac.nombre_completo) LIKE :termino OR LOWER(jac.nombre_corto) LIKE :termino)',
+        { termino },
+      );
+    }
+
+    if (filters.municipio) {
+      qb.andWhere('LOWER(asocomunal.municipio_nombre) LIKE :municipio', {
+        municipio: `%${filters.municipio.toLowerCase()}%`,
+      });
+    }
+
+    if (filters.estado) {
+      qb.andWhere('jac.estado = :estado', { estado: filters.estado });
+    }
+
+    qb.orderBy('jac.nombre_completo', 'ASC');
+
+    const jacs = await qb.getMany();
+    return JACResponseDto.fromEntities(jacs);
+  }
+
+  /**
+   * Actualiza los campos indicados de una JAC existente.
+   *
+   * @param id - Identificador de la JAC a actualizar.
+   * @param updateJACDto - Campos a modificar (todos opcionales).
+   * @returns La JAC actualizada como {@link JACResponseDto}.
+   * @throws {NotFoundException} Si la JAC no existe.
+   */
   async update(id: number, updateJACDto: UpdateJACDto): Promise<JACResponseDto> {
     const jac = await this.jacRepository.findOne({ where: { id } });
 
@@ -62,17 +142,27 @@ export class JacService {
     }
 
     Object.assign(jac, updateJACDto);
-    const updatedJac = await this.jacRepository.save(jac);
+    const updated = await this.jacRepository.save(jac);
 
     await this.rabbitMQService.notifyJACUpdated({
-      id: updatedJac.id,
-      nombre: updatedJac.nombreCompleto,
-      asocomunalId: null,
+      id: updated.id,
+      nombre: updated.nombreCompleto,
+      asocomunalId: updated.asocomunalId,
     });
 
-    return JACResponseDto.fromEntity(updatedJac);
+    return JACResponseDto.fromEntity(updated);
   }
 
+  /**
+   * Realiza la eliminación lógica de una JAC cambiando su `estado` a `inactiva`.
+   *
+   * @remarks
+   * El registro no se borra de la base de datos para mantener historial.
+   *
+   * @param id - Identificador de la JAC a desactivar.
+   * @returns Mensaje de confirmación.
+   * @throws {NotFoundException} Si la JAC no existe.
+   */
   async remove(id: number): Promise<{ message: string }> {
     const jac = await this.jacRepository.findOne({ where: { id } });
 
@@ -80,11 +170,11 @@ export class JacService {
       throw new NotFoundException(`JAC con ID ${id} no encontrada`);
     }
 
-    jac.estadoId = ESTADO_INACTIVA;
+    jac.estado = EstadoJAC.INACTIVA;
     await this.jacRepository.save(jac);
-
     await this.rabbitMQService.notifyJACDeleted(jac.id);
 
+    this.logger.log(`JAC id=${id} desactivada`);
     return { message: `JAC "${jac.nombreCompleto}" desactivada correctamente` };
   }
 }

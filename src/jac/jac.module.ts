@@ -1,14 +1,3 @@
-/**
- * Módulo de JAC
- * 
- * Agrupa todos los componentes relacionados con JACs:
- * - Entity (tabla en BD)
- * - Service (lógica de negocio)
- * - Controller (endpoints HTTP)
- * - DTOs (validación de datos)
- * 
- * Importa RabbitMQModule para poder notificar eventos
- */
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { JAC } from './entities/jac.entity';
@@ -17,17 +6,33 @@ import { JacController } from './jac.controller';
 import { RabbitMQModule } from '../rabbitmq/rabbitmq.module';
 import { RabbitMQController } from '../rabbitmq/rabbitmq.controller';
 import { JacConsumer } from './infrastructure/messaging/jac.consumer';
+import { AsocomunalModule } from '../asocomunal/asocomunal.module';
 
+/**
+ * Módulo principal de JAC.
+ *
+ * @remarks
+ * Agrupa todos los componentes del dominio JAC:
+ * - {@link JacController} — endpoints HTTP REST.
+ * - {@link JacService} — lógica de negocio.
+ * - {@link RabbitMQController} — consumidor de eventos de Asocomunales.
+ * - {@link JacConsumer} — consumidor de confirmaciones del microservicio.
+ *
+ * Importa {@link AsocomunalModule} para que {@link RabbitMQController}
+ * pueda persistir los eventos de Asocomunales recibidos vía RabbitMQ.
+ */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([JAC]), // Registrar entidad
-    RabbitMQModule,                   // Para notificaciones
+    TypeOrmModule.forFeature([JAC]),
+    RabbitMQModule,
+    AsocomunalModule,
   ],
-  controllers: [JacController,
-    JacConsumer, // Para consumir eventos de Asocomunal
+  controllers: [
+    JacController,
+    JacConsumer,
     RabbitMQController,
   ],
   providers: [JacService],
-  exports: [JacService], // Disponible para otros módulos
+  exports: [JacService],
 })
 export class JacModule {}
