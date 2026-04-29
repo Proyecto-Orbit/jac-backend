@@ -28,7 +28,7 @@ export class Asocomunal {
   @Column({ name: 'municipio_id', type: 'int', nullable: true })
   municipioId!: number | null;
 
-  /** Nombre legible del municipio, desnormalizado para evitar JOINs adicionales. */
+  /** Nombre legible del municipio, desnormalizado para evitar JOINs adicionales. Esto se puede hacer porque como tal este microservicio no mantiene una relación directa con la tabla de municipios. */
   @Column({ name: 'municipio_nombre', type: 'varchar', length: 100, nullable: true })
   municipioNombre!: string | null;
 

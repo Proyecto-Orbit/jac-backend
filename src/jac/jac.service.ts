@@ -5,6 +5,7 @@ import { EstadoJAC, JAC } from './entities/jac.entity';
 import { CreateJACDto } from './dto/create-jac.dto';
 import { UpdateJACDto } from './dto/update-jac.dto';
 import { JACResponseDto } from './dto/jac-response.dto';
+import { JacItemDto } from './dto/jac-item.dto';
 import { SearchJACDto } from './dto/search-jac.dto';
 import { RabbitMQService } from '../rabbitmq/rabbitmq.service';
 
@@ -56,13 +57,13 @@ export class JacService {
    *
    * @returns Array de {@link JACResponseDto}.
    */
-  async findAll(): Promise<JACResponseDto[]> {
+  async findAll(): Promise<JacItemDto[]> {
     const jacs = await this.jacRepository.find({
       where: { estado: EstadoJAC.ACTIVA },
-      relations: ['asocomunal'],
+      relations: ['asocomunal', 'personas', 'personas.cargo'],
       order: { nombreCompleto: 'ASC' },
     });
-    return JACResponseDto.fromEntities(jacs);
+    return JacItemDto.fromEntities(jacs);
   }
 
   /**
@@ -72,17 +73,17 @@ export class JacService {
    * @returns La JAC encontrada como {@link JACResponseDto}.
    * @throws {NotFoundException} Si no existe o su estado no es `activa`.
    */
-  async findOne(id: number): Promise<JACResponseDto> {
+  async findOne(id: number): Promise<JacItemDto> {
     const jac = await this.jacRepository.findOne({
       where: { id, estado: EstadoJAC.ACTIVA },
-      relations: ['asocomunal'],
+      relations: ['asocomunal', 'personas', 'personas.cargo'],
     });
 
     if (!jac) {
       throw new NotFoundException(`JAC con ID ${id} no encontrada`);
     }
 
-    return JACResponseDto.fromEntity(jac);
+    return JacItemDto.fromEntity(jac);
   }
 
   /**
@@ -97,10 +98,12 @@ export class JacService {
    * @param filters - Criterios de búsqueda definidos en {@link SearchJACDto}.
    * @returns Array de {@link JACResponseDto} que coinciden con los filtros.
    */
-  async search(filters: SearchJACDto): Promise<JACResponseDto[]> {
+  async search(filters: SearchJACDto): Promise<JacItemDto[]> {
     const qb = this.jacRepository
       .createQueryBuilder('jac')
-      .leftJoinAndSelect('jac.asocomunal', 'asocomunal');
+      .leftJoinAndSelect('jac.asocomunal', 'asocomunal')
+      .leftJoinAndSelect('jac.personas', 'personas')
+      .leftJoinAndSelect('personas.cargo', 'cargo');
 
     if (filters.nombre) {
       const termino = `%${filters.nombre.toLowerCase()}%`;
@@ -123,7 +126,7 @@ export class JacService {
     qb.orderBy('jac.nombre_completo', 'ASC');
 
     const jacs = await qb.getMany();
-    return JACResponseDto.fromEntities(jacs);
+    return JacItemDto.fromEntities(jacs);
   }
 
   /**

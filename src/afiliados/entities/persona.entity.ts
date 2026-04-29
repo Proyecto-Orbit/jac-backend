@@ -9,6 +9,7 @@ import {
 import { Cargo } from './cargo.entity';
 import { PersonaCargo } from './persona-cargo.entity';
 import { PersonaJAC } from './persona-jac.entity';
+import { JAC } from '../../jac/entities/jac.entity';
 
 @Entity('PERSONA')
 export class Persona {
@@ -45,6 +46,10 @@ export class Persona {
   @ManyToOne(() => Cargo, (cargo) => cargo.personas, { nullable: true })
   @JoinColumn({ name: 'cargo_id' })
   cargo!: Cargo | null;
+
+  @ManyToOne(() => JAC, (jac) => jac.personas, { nullable: true, eager: false })
+  @JoinColumn({ name: 'JAC_id' })
+  jac!: JAC | null;
 
   @OneToMany(() => PersonaCargo, (pc) => pc.persona)
   personaCargos!: PersonaCargo[];

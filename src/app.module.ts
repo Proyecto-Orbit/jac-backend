@@ -11,6 +11,7 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { JwtModule } from '@nestjs/jwt';
 import { JacModule } from './jac/jac.module';
 import { RabbitMQModule } from './rabbitmq/rabbitmq.module';
 import { RolesGuard } from './auth/roles.guard';
@@ -43,6 +44,16 @@ import { AsocomunalModule } from './asocomunal/asocomunal.module';
       inject: [ConfigService],
     }),
     
+    // JwtModule: Disponible globalmente para el guard de autenticación
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) => ({
+        secret: configService.get<string>('JWT_SECRET'),
+      }),
+      inject: [ConfigService],
+      global: true,
+    }),
+
     // Módulos de la aplicación
     JacModule,
     AfiliadosModule,

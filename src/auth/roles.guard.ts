@@ -6,13 +6,24 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { JwtService } from '@nestjs/jwt';
 import { Request } from 'express';
 import { ROLES_KEY } from './auth.decorator';
 import { Role } from './role.enum';
 
+interface JwtPayload {
+  sub: string;
+  email: string;
+  nombre: string;
+  rol: string;
+}
+
 @Injectable()
 export class RolesGuard implements CanActivate {
-  constructor(private reflector: Reflector) {}
+  constructor(
+    private reflector: Reflector,
+    private readonly jwtService: JwtService,
+  ) {}
 
   canActivate(context: ExecutionContext): boolean {
     const requiredRoles = this.reflector.getAllAndOverride<Role[]>(ROLES_KEY, [
@@ -25,23 +36,24 @@ export class RolesGuard implements CanActivate {
     }
 
     const request = context.switchToHttp().getRequest<Request>();
-    const cookieHeader = request.headers.cookie;
+    const cookieName = process.env.COOKIE_NAME ?? 'token';
+    const token: string | undefined = (request.cookies as Record<string, string>)?.[cookieName];
 
-    if (!cookieHeader) {
-      throw new UnauthorizedException('No se encontró la cookie de autenticación');
+    if (!token) {
+      throw new UnauthorizedException('Token de autenticación no proporcionado');
     }
 
-    const cookies = Object.fromEntries(
-      cookieHeader.split(';').map((c) => {
-        const [key, ...val] = c.trim().split('=');
-        return [key.trim(), decodeURIComponent(val.join('='))];
-      }),
-    );
+    let payload: JwtPayload;
+    try {
+      payload = this.jwtService.verify<JwtPayload>(token);
+    } catch {
+      throw new UnauthorizedException('Token inválido o expirado');
+    }
 
-    const userRole = cookies['rol'] as Role;
+    const userRole = payload.rol as Role;
 
     if (!userRole) {
-      throw new UnauthorizedException('No se encontró el rol en la cookie');
+      throw new UnauthorizedException('No se encontró el rol en el token');
     }
 
     if (!requiredRoles.includes(userRole)) {
@@ -50,6 +62,7 @@ export class RolesGuard implements CanActivate {
       );
     }
 
+    (request as Request & { user: JwtPayload }).user = payload;
     return true;
   }
 }

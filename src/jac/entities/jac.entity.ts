@@ -3,9 +3,11 @@ import {
   Entity,
   JoinColumn,
   ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import { Asocomunal } from '../../asocomunal/entities/asocomunal.entity';
+import { Persona } from '../../afiliados/entities/persona.entity';
 
 /**
  * Valores posibles para el estado de una JAC.
@@ -90,4 +92,7 @@ export class JAC {
   @ManyToOne(() => Asocomunal, { nullable: true, eager: false })
   @JoinColumn({ name: 'asocomunal_id' })
   asocomunal!: Asocomunal | null;
+
+  @OneToMany(() => Persona, (persona) => persona.jac)
+  personas!: Persona[];
 }
