@@ -40,7 +40,7 @@ export class Persona {
   @Column({ type: 'varchar', length: 20, nullable: true })
   telefono!: string | null;
 
-  @Column({ type: 'varchar', length: 20, nullable: true })
+  @Column({ type: 'varchar', length: 150, nullable: true })
   correo!: string | null;
 
   @ManyToOne(() => Cargo, (cargo) => cargo.personas, { nullable: true })

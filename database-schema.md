@@ -1,6 +1,6 @@
 # Esquema de Base de Datos
 
-> Última actualización: 2026-04-23
+> Última actualización: 2026-05-01
 > Motor: **PostgreSQL**
 
 ---
@@ -18,7 +18,7 @@ La eliminación es **lógica**: se cambia `estado` a `inactiva` en lugar de borr
 | estado          | ENUM('activa','inactiva','cancelada') | NO | Estado actual. Default: `activa`                   |
 | nombre_corto    | VARCHAR(100)                      | SÍ   | Nombre abreviado o coloquial                           |
 | nombre_completo | VARCHAR(100)                      | NO   | Nombre completo oficial                                |
-| numero_RUC      | VARCHAR(20)   | SÍ   | Número de RUC (no todas las JAC lo tienen)         |
+| numero_RUC      | VARCHAR(30)   | SÍ   | Número de RUC (no todas las JAC lo tienen)         |
 
 ---
 
@@ -53,7 +53,7 @@ Representa un afiliado o integrante de una JAC.
 | cedula                   | VARCHAR(20)  | SÍ   | Número de cédula                        |
 | lugar_expedicion_cedula  | VARCHAR(50)  | SÍ   | Lugar de expedición del documento       |
 | telefono                 | VARCHAR(20)  | SÍ   | Número telefónico de contacto           |
-| correo                   | VARCHAR(20)  | SÍ   | Correo electrónico de contacto          |
+| correo                   | VARCHAR(150)  | SÍ   | Correo electrónico de contacto          |
 
 ---
 

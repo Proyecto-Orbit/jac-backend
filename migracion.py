@@ -1,102 +1,134 @@
 """
-Migración de datos desde el Excel fuente hacia PostgreSQL,
-incluyendo la carga semilla de ASOCOMUNALES y MUNICIPIOS.
+Migración de datos desde el Excel fuente hacia PostgreSQL.
+
+Flujo:
+  1. Carga semilla de ASOCOMUNALES.
+  2. Migra JACs desde la sheet "JAC CAUCA".
+  3. Migra JACs desde la sheet "JAC POPAYAN".
+  4. Actualiza a estado 'cancelada' las JACs listadas en la sheet "CANCELADAS".
+  5. Cada JAC queda relacionada con la asocomunal de su municipio,
+     excepto en municipios con varias asocomunales (Argelia, Buenos Aires, Santa Rosa).
 
 Requisitos:
-pip install psycopg2-binary pandas openpyxl python-dotenv
+    pip install psycopg2-binary pandas openpyxl python-dotenv
+
+Pre-requisito en la BD:
+    Ejecutar seed-cargo.sql (los CARGO ya deben existir).
 """
 
 import os
 import re
 import json
 import math
+import unicodedata
 import pandas as pd
 import psycopg2
 from dotenv import load_dotenv
 
-# ── Índices de columnas en el Excel ─────────────────────────────────────────
-COL_MUNICIPIO       = 1
-COL_NOMBRE_CORTO    = 2
-COL_ACTIVA          = 5
-COL_NOMBRE_COMPLETO = 10
-COL_CARGO_EXCEL     = 12
-COL_NOMBRE_PRES     = 13
-COL_CEDULA          = 14
-COL_LUGAR_EXP       = 15
-COL_TELEFONO        = 17
-COL_CORREO          = 18
-COL_RUC             = 24
+# ── Sheets ────────────────────────────────────────────────────────────────────
+SHEET_JAC_CAUCA   = 'JAC CAUCA'
+SHEET_JAC_POPAYAN = 'JAC POPAYAN'
+SHEET_CANCELADAS  = 'CANCELADAS'
 
-# ── Datos de los Municipios (Auto incremental ID desde 1) ─────────────────
-MUNICIPIOS =[
-    'Almaguer', 'Argelia', 'Balboa', 'Bolívar', 'Buenos Aires', 'Cajibío', 'Caldono', 
-    'Caloto', 'Corinto', 'El Tambo', 'Florencia', 'Guachené', 'Guapi', 'Inzá', 
-    'Jambaló', 'La Sierra', 'La Vega', 'López de Micay', 'Mercaderes', 'Miranda', 
-    'Morales', 'Padilla', 'Páez', 'Patía', 'Piamonte', 'Piendamó', 'Popayán', 
-    'Puerto Tejada', 'Puracé', 'Rosas', 'San Sebastián', 'Santa Rosa', 
-    'Santander de Quilichao', 'Silvia', 'Sotará', 'Suárez', 'Sucre', 'Timbío', 
-    'Timbiquí', 'Toribío', 'Totoró', 'Villa Rica'
+# ── Índices de columnas: sheet "JAC CAUCA" (header en fila 4 del Excel) ──────
+COLS_CAUCA = {
+    'municipio':       1,
+    'nombre_corto':    2,
+    'estado':          4,
+    'nombre_completo': 6,
+    'ruc':             9,
+    'cargo':           10,
+    'nombre_pres':     11,
+    'cedula':          12,
+    'lugar_exp':       13,
+    'telefono':        14,
+    'correo':          15,
+}
+
+# ── Índices de columnas: sheet "JAC POPAYAN" (header en fila 2 del Excel) ────
+COLS_POPAYAN = {
+    'nombre_completo': 1,
+    'estado':          2,
+    'nombre_pres':     3,
+    'telefono':        4,
+    'telefono_alt':    5,
+    'correo':          6,
+}
+
+# ── Índices de columnas: sheet "CANCELADAS" (header en fila 2 del Excel) ─────
+COLS_CANCEL = {
+    'flag':            1,   # "cancelada" / "no cancelada" / NaN
+    'municipio':       2,
+    'nombre_corto':    3,
+    'nombre_completo': 7,
+}
+
+# ── Datos de los Municipios (ID auto-incremental desde 1) ────────────────────
+MUNICIPIOS = [
+    'Almaguer', 'Argelia', 'Balboa', 'Bolívar', 'Buenos Aires', 'Cajibío', 'Caldono',
+    'Caloto', 'Corinto', 'El Tambo', 'Florencia', 'Guachené', 'Guapi', 'Inzá',
+    'Jambaló', 'La Sierra', 'La Vega', 'López de Micay', 'Mercaderes', 'Miranda',
+    'Morales', 'Padilla', 'Páez', 'Patía', 'Piamonte', 'Piendamó', 'Popayán',
+    'Puerto Tejada', 'Puracé', 'Rosas', 'San Sebastián', 'Santa Rosa',
+    'Santander de Quilichao', 'Silvia', 'Sotará', 'Suárez', 'Sucre', 'Timbío',
+    'Timbiquí', 'Toribío', 'Totoró', 'Villa Rica',
+]
+POPAYAN_MUNICIPIO_ID = 27  # 'Popayán'
+
+# Municipios con MÚLTIPLES asocomunales: no relacionar JACs con ninguna.
+ASOCOMUNAL_EXCLUIDOS = {2, 5, 32}  # Argelia, Buenos Aires, Santa Rosa
+
+# ── Datos de ASOCOMUNALES a insertar ─────────────────────────────────────────
+ASOCOMUNALES_DATA = [
+    { "nombre": 'Asocomunal Almaguer', "municipioId": 1, "estado": True },
+    { "nombre": 'Asocomunal Argelia Cabecera', "municipioId": 2, "estado": True },
+    { "nombre": 'Asocomunal Cgtos. El Plateado la Emboscada y S.', "municipioId": 2, "estado": True },
+    { "nombre": 'Asocomunal Balboa', "municipioId": 3, "estado": True },
+    { "nombre": 'Asocomunal Bolivar', "municipioId": 4, "estado": True },
+    { "nombre": 'Asocomunal Buenos Aires', "municipioId": 5, "estado": True },
+    { "nombre": 'Asocomunal Alto Naya', "municipioId": 5, "estado": True },
+    { "nombre": 'Asocomunal Cajibio', "municipioId": 6, "estado": True },
+    { "nombre": 'Asocomunal Caldono', "municipioId": 7, "estado": True },
+    { "nombre": 'Asocomunal Caloto', "municipioId": 8, "estado": True },
+    { "nombre": 'Asocomunal Corinto', "municipioId": 9, "estado": True },
+    { "nombre": 'Asocomunal El Tambo', "municipioId": 10, "estado": True },
+    { "nombre": 'Asocomunal Florencia', "municipioId": 11, "estado": False },
+    { "nombre": 'Asocomunal Guachene', "municipioId": 12, "estado": True },
+    { "nombre": 'Asocomunal Guapi', "municipioId": 13, "estado": True },
+    { "nombre": 'Asocomunal Inza', "municipioId": 14, "estado": True },
+    { "nombre": 'Asocomunal Jambalo', "municipioId": 15, "estado": True },
+    { "nombre": 'Asocomunal La Sierra', "municipioId": 16, "estado": True },
+    { "nombre": 'Asocomunal La Vega', "municipioId": 17, "estado": True },
+    { "nombre": 'Asocomunal López de Micay', "municipioId": 18, "estado": False },
+    { "nombre": 'Asocomunal Mercaderes', "municipioId": 19, "estado": True },
+    { "nombre": 'Asocomunal Miranda', "municipioId": 20, "estado": True },
+    { "nombre": 'Asocomunal Morales', "municipioId": 21, "estado": True },
+    { "nombre": 'Asocomunal Padilla', "municipioId": 22, "estado": False },
+    { "nombre": 'Asocomunal Paez', "municipioId": 23, "estado": True },
+    { "nombre": 'Asocomunal Patia', "municipioId": 24, "estado": True },
+    { "nombre": 'Asocomunal Piamonte', "municipioId": 25, "estado": True },
+    { "nombre": 'Asocomunal Piendamo', "municipioId": 26, "estado": True },
+    { "nombre": 'Asocomunal Popayan', "municipioId": 27, "estado": True },
+    { "nombre": 'Asocomunal Puerto Tejada', "municipioId": 28, "estado": True },
+    { "nombre": 'Asocomunal Purace', "municipioId": 29, "estado": True },
+    { "nombre": 'Asocomunal Rosas', "municipioId": 30, "estado": True },
+    { "nombre": 'Asocomunal San Sebastian', "municipioId": 31, "estado": True },
+    { "nombre": 'Asocomunal Santa Rosa Cabecera', "municipioId": 32, "estado": True },
+    { "nombre": 'Asocomunal Santa Rosa Media Bota', "municipioId": 32, "estado": True },
+    { "nombre": 'Asocomunal Santa Rosa Villalobos', "municipioId": 32, "estado": True },
+    { "nombre": 'Asocomunal Santander de Quilichao', "municipioId": 33, "estado": True },
+    { "nombre": 'Asocomunal Silvia', "municipioId": 34, "estado": True },
+    { "nombre": 'Asocomunal Sotara', "municipioId": 35, "estado": True },
+    { "nombre": 'Asocomunal Suarez', "municipioId": 36, "estado": True },
+    { "nombre": 'Asocomunal Sucre', "municipioId": 37, "estado": True },
+    { "nombre": 'Asocomunal Timbio', "municipioId": 38, "estado": True },
+    { "nombre": 'Asocomunal Timbiqui', "municipioId": 39, "estado": False },
+    { "nombre": 'Asocomunal Toribio', "municipioId": 40, "estado": True },
+    { "nombre": 'Asocomunal Totoro', "municipioId": 41, "estado": True },
+    { "nombre": 'Asocomunal Villa Rica', "municipioId": 42, "estado": True },
 ]
 
-def obtener_nombre_municipio(municipio_id: int) -> str | None:
-    if not municipio_id or municipio_id < 1 or municipio_id > len(MUNICIPIOS):
-        return None
-    return MUNICIPIOS[municipio_id - 1]
-
-# ── Datos de ASOCOMUNALES a insertar ──────────────────────────────────────
-# Nota: Los campos de presidente, teléfono y correo se dejan en el diccionario 
-#       por si deseas cruzarlos con la tabla PERSONA, pero no se insertan en 
-#       la tabla ASOCOMUNAL según tu definición estricta.
-ASOCOMUNALES_DATA =[
-    { "nombre": 'Asocomunal Almaguer', "municipioId": 1, "estado": True, "presidente": 'Carlos Hoyos Ruano', "telefono": '3208932387', "correo": 'asociacioncomunalalmaguer@gmail.com' },
-    { "nombre": 'Asocomunal Argelia Cabecera', "municipioId": 2, "estado": True, "presidente": 'Eyder Muñoz Rosero', "telefono": '3117115155', "correo": 'asocomunalargelia74@gmail.com' },
-    { "nombre": 'Asocomunal Cgtos. El Plateado la Emboscada y S.', "municipioId": 2, "estado": True, "presidente": 'Eliver Arboleda Bermudez', "telefono": '3187421622', "correo": 'promotoriargeliacauca@gmail.com;promotoriadejuntas@argelia-cauca.gov.co' },
-    { "nombre": 'Asocomunal Balboa', "municipioId": 3, "estado": True, "presidente": 'Andres Felipe Suarez Dorado', "telefono": '3106153184', "correo": 'asocomunalbalboa@gmail.com' },
-    { "nombre": 'Asocomunal Bolivar', "municipioId": 4, "estado": True, "presidente": 'Fredy Yobany Zemanate', "telefono": '3122871156', "correo": 'asocomunalbolivarc@hotmail.com' },
-    { "nombre": 'Asocomunal Buenos Aires', "municipioId": 5, "estado": True, "presidente": 'Manuel Cortes Salinas', "telefono": '3146436320', "correo": 'asocomunalbuenosaires2225@gmail.com' },
-    { "nombre": 'Asocomunal Alto Naya', "municipioId": 5, "estado": True, "presidente": 'Manuel Tenorio Yonda', "telefono": '3027830505;3153933757', "correo": 'desarrollocomunitario@buenosaires-cauca.gov.co;greysigomez1986@gmail.com' },
-    { "nombre": 'Asocomunal Cajibio', "municipioId": 6, "estado": True, "presidente": 'Margarett Garcia Guardo', "telefono": '3137486215', "correo": 'asocomunalcajibio@gmail.com' },
-    { "nombre": 'Asocomunal Caldono', "municipioId": 7, "estado": True, "presidente": 'Silvio Bomba Campo', "telefono": '3104337775', "correo": 'asocomunalcaldonocauca@gmail.com' },
-    { "nombre": 'Asocomunal Caloto', "municipioId": 8, "estado": True, "presidente": 'Oswaldo Velasco Daza', "telefono": '3216455133', "correo": 'asoc.caloto@hotmail.com' },
-    { "nombre": 'Asocomunal Corinto', "municipioId": 9, "estado": True, "presidente": 'Vilma Lorena Motta', "telefono": '3148856543', "correo": 'jacasocomunalcorinto@gmail.com' },
-    { "nombre": 'Asocomunal El Tambo', "municipioId": 10, "estado": True, "presidente": 'Jesus Antonio Caicedo', "telefono": '3126004342', "correo": 'asocomunaleltambocauca@gmail.com' },
-    { "nombre": 'Asocomunal Florencia', "municipioId": 11, "estado": False, "presidente": 'No Eligio', "telefono": None, "correo": None },
-    { "nombre": 'Asocomunal Guachene', "municipioId": 12, "estado": True, "presidente": 'Oscar Cantoñi Mina', "telefono": '3207092039', "correo": 'asocomunalg@gmail.com' },
-    { "nombre": 'Asocomunal Guapi', "municipioId": 13, "estado": True, "presidente": 'Daniel Solís Sinisterra', "telefono": '3136088967', "correo": 'asocomunalguapi@gmail.com' },
-    { "nombre": 'Asocomunal Inza', "municipioId": 14, "estado": True, "presidente": 'Astrid Sanchez Campos', "telefono": '3133150133', "correo": 'asocomunalinzacauca@gmail.com' },
-    { "nombre": 'Asocomunal Jambalo', "municipioId": 15, "estado": True, "presidente": 'Brandon Velasco Valencia', "telefono": '3206838330', "correo": 'asocomunal.jambalo@gmail.com' },
-    { "nombre": 'Asocomunal La Sierra', "municipioId": 16, "estado": True, "presidente": 'Heriberto López Albán', "telefono": '3113538554', "correo": 'asocomunallasierra@gmail.com' },
-    { "nombre": 'Asocomunal La Vega', "municipioId": 17, "estado": True, "presidente": 'Mancer Gerardo Muñoz', "telefono": '3175584072', "correo": 'asocomunallavega@gmail.com' },
-    { "nombre": 'Asocomunal López de Micay', "municipioId": 18, "estado": False, "presidente": 'No Eligio', "telefono": None, "correo": None },
-    { "nombre": 'Asocomunal Mercaderes', "municipioId": 19, "estado": True, "presidente": 'Enrique Aldivar Angulo Velasco', "telefono": '3207402971', "correo": 'asocomunal.mercaderes2022@gmail.com' },
-    { "nombre": 'Asocomunal Miranda', "municipioId": 20, "estado": True, "presidente": 'Martha Cecilia Valencia Cabezas', "telefono": '3117965806', "correo": 'asocomunaldemirada@gmail.com' },
-    { "nombre": 'Asocomunal Morales', "municipioId": 21, "estado": True, "presidente": 'Luis Eduardo Valencia Vergara', "telefono": '3103734753', "correo": 'desarrollocomunitario@morales-cauca.gov.co' },
-    { "nombre": 'Asocomunal Padilla', "municipioId": 22, "estado": False, "presidente": None, "telefono": None, "correo": None },
-    { "nombre": 'Asocomunal Paez', "municipioId": 23, "estado": True, "presidente": 'Celestino Ortiz Mera', "telefono": '3113789142', "correo": 'asocomunalpaezcauca@hotmail.com' },
-    { "nombre": 'Asocomunal Patia', "municipioId": 24, "estado": True, "presidente": 'Maria del Pilar Lopez Herrera', "telefono": '3127888725', "correo": 'secretariaasojuntaspatia@gmail.com;presidenciaasojuntas@gmail.com' },
-    { "nombre": 'Asocomunal Piamonte', "municipioId": 25, "estado": True, "presidente": 'Gildardo Pastrana', "telefono": '3115324001', "correo": 'asocomunalpiamonte@gmail.com' },
-    { "nombre": 'Asocomunal Piendamo', "municipioId": 26, "estado": True, "presidente": 'Jose Aymer Mosquera Ramirez', "telefono": '3113293768', "correo": 'piendamoasocomunal@gmail.com' },
-    { "nombre": 'Asocomunal Popayan', "municipioId": 27, "estado": True, "presidente": 'Jhonatan Constain', "telefono": '3122639348', "correo": 'asocomunalpopayancauca@gmail.com' },
-    { "nombre": 'Asocomunal Puerto Tejada', "municipioId": 28, "estado": True, "presidente": 'Carlos Arturo Lasso Vasquez', "telefono": '3184212320', "correo": 'ptotejadaasojuntas@gmail.com' },
-    { "nombre": 'Asocomunal Purace', "municipioId": 29, "estado": True, "presidente": 'Oscar Joel Cuchumbe Chantre', "telefono": '3216410316', "correo": 'juntaspurace@gmail.com' },
-    { "nombre": 'Asocomunal Rosas', "municipioId": 30, "estado": True, "presidente": 'Eduardo Narvaez', "telefono": '3216410316', "correo": 'asocomunalrosas@gmail.com;asocomunalrosascauca2023@hotmail.com' },
-    { "nombre": 'Asocomunal San Sebastian', "municipioId": 31, "estado": True, "presidente": 'Felio Roldan Timana Anacona', "telefono": '3206995085', "correo": 'contador1@caminosdeoportunidades.com.co;jesusarbeym2@hotmail.com' },
-    { "nombre": 'Asocomunal Santa Rosa Cabecera', "municipioId": 32, "estado": True, "presidente": 'Nelson Joaqui', "telefono": '3148570441', "correo": 'asojuntassantarosacabecera25@gmail.com' },
-    { "nombre": 'Asocomunal Santa Rosa Media Bota', "municipioId": 32, "estado": True, "presidente": 'Edelmo Calvahce', "telefono": '3212476240', "correo": 'asojuntassantarosacabecera25@gmail.com' },
-    { "nombre": 'Asocomunal Santa Rosa Villalobos', "municipioId": 32, "estado": True, "presidente": 'Alejandro Piamba Jimenez', "telefono": '3213418027', "correo": 'asojuntasvillaloboscauca@gmail.com' },
-    { "nombre": 'Asocomunal Santander de Quilichao', "municipioId": 33, "estado": True, "presidente": 'Jessica Lasso Choco', "telefono": '3113643059', "correo": 'asocomunalquilichao@gmail.com' },
-    { "nombre": 'Asocomunal Silvia', "municipioId": 34, "estado": True, "presidente": 'Wilson Ferney Chilo Pito', "telefono": '3216413372', "correo": 'asocomunalsilviacauca@gmail.com' },
-    { "nombre": 'Asocomunal Sotara', "municipioId": 35, "estado": True, "presidente": 'Vilma Yamileth Astaiza Rivera', "telefono": '3184512686', "correo": 'sotaraasociaciondejuntas@gmail.com' },
-    { "nombre": 'Asocomunal Suarez', "municipioId": 36, "estado": True, "presidente": 'Gersain Soscue Zambrano', "telefono": '3174914030', "correo": 'asojuntassuarez@gmail.com' },
-    { "nombre": 'Asocomunal Sucre', "municipioId": 37, "estado": True, "presidente": 'Lorena Carvajal Martinez', "telefono": '3108218229', "correo": 'asocomunalsucre2023@gmail.com' },
-    { "nombre": 'Asocomunal Timbio', "municipioId": 38, "estado": True, "presidente": 'Alfonso Truque Diaz', "telefono": '3127029949', "correo": 'asocomunal.timbiocauca@gmail.com' },
-    { "nombre": 'Asocomunal Timbiqui', "municipioId": 39, "estado": False, "presidente": 'No Eligio', "telefono": None, "correo": None },
-    { "nombre": 'Asocomunal Toribio', "municipioId": 40, "estado": True, "presidente": 'Lirio Velez Noscue Mijera', "telefono": '3207441313', "correo": 'asociacionjactoribio@gmail.com' },
-    { "nombre": 'Asocomunal Totoro', "municipioId": 41, "estado": True, "presidente": 'Marleny Estela Ibarra M.', "telefono": '3114831001', "correo": 'asocomunaltotoro2026@outlook.com' },
-    { "nombre": 'Asocomunal Villa Rica', "municipioId": 42, "estado": True, "presidente": 'Jhoan A. Montes Usme', "telefono": '3216134066', "correo": 'asocomunalvillarica@hotmail.com' }
-]
-
-# ── Helpers ─────────────────────────────────────────────────────────────────
+# ── Helpers ──────────────────────────────────────────────────────────────────
 def es_nan(valor) -> bool:
     if valor is None:
         return True
@@ -114,12 +146,22 @@ def limpiar(valor, max_len: int | None = None) -> str | None:
         texto = texto[:max_len]
     return texto
 
-def mapear_estado(activa_raw) -> str:
-    if es_nan(activa_raw):
+def normalizar(texto: str | None) -> str:
+    """Mayúsculas, sin acentos, espacios colapsados. Para comparar nombres."""
+    if not texto:
+        return ''
+    texto = unicodedata.normalize('NFD', str(texto))
+    texto = ''.join(c for c in texto if unicodedata.category(c) != 'Mn')
+    return re.sub(r'\s+', ' ', texto).strip().upper()
+
+def mapear_estado(valor_raw) -> str:
+    if es_nan(valor_raw):
         return 'activa'
-    valor = str(activa_raw).strip().upper()
+    valor = normalizar(valor_raw)
     if valor == 'ACTIVA':
         return 'activa'
+    if valor == 'CANCELADA':
+        return 'cancelada'
     return 'inactiva'
 
 def es_ruc_valido(valor) -> bool:
@@ -137,12 +179,284 @@ def parsear_nombre(nombre_completo: str) -> tuple[str, str]:
     if n == 3: return (partes[0], ' '.join(partes[1:]))
     return (' '.join(partes[:2]), ' '.join(partes[2:]))
 
-def col(row, indice):
-    return row.iloc[indice]
+def num_a_str(valor) -> str | None:
+    """Convierte un valor (a veces float por pandas) a string sin '.0'."""
+    if es_nan(valor):
+        return None
+    if isinstance(valor, float):
+        return str(int(valor)) if not math.isnan(valor) else None
+    return str(valor)
 
-# ── Main ────────────────────────────────────────────────────────────────────
+def quitar_marcador_cancelada(texto: str) -> str:
+    """Remueve sufijos del tipo '(CANCELADA)', '- CANCELADA', 'CANCELADAS'."""
+    if not texto:
+        return ''
+    t = texto
+    t = re.sub(r'\s*[\(\-]\s*CANCELADAS?\s*\)?\s*$', '', t, flags=re.IGNORECASE)
+    t = re.sub(r'\s+CANCELADAS?\s*$', '', t, flags=re.IGNORECASE)
+    return t.strip()
+
+def construir_lookup_municipios() -> dict[str, int]:
+    return {normalizar(n): i + 1 for i, n in enumerate(MUNICIPIOS)}
+
+def construir_mapa_asocomunal(asocomunales: list[dict]) -> dict[int, int]:
+    """municipio_id → asocomunal_id, sólo cuando hay UNA asocomunal por municipio
+    y el municipio NO está en la lista de exclusión."""
+    conteos: dict[int, int] = {}
+    for a in asocomunales:
+        conteos[a['municipioId']] = conteos.get(a['municipioId'], 0) + 1
+    mapa: dict[int, int] = {}
+    for i, a in enumerate(asocomunales):
+        mid = a['municipioId']
+        if mid in ASOCOMUNAL_EXCLUIDOS:
+            continue
+        if conteos[mid] != 1:
+            continue
+        mapa[mid] = i + 1
+    return mapa
+
+# ── Operaciones de BD ────────────────────────────────────────────────────────
+def insertar_asocomunales(cursor, conn) -> int:
+    print('⏳ Migrando Asocomunales...')
+    insertadas = 0
+    for i, asoc in enumerate(ASOCOMUNALES_DATA):
+        asoc_id = i + 1  # PK manual (no auto)
+        municipio_id = asoc['municipioId']
+        municipio_nombre = MUNICIPIOS[municipio_id - 1] if 1 <= municipio_id <= len(MUNICIPIOS) else None
+        try:
+            cursor.execute(
+                """
+                INSERT INTO public."ASOCOMUNAL"
+                    (id, nombre, municipio_id, municipio_nombre, estado)
+                VALUES (%s, %s, %s, %s, %s)
+                ON CONFLICT (id) DO NOTHING
+                """,
+                (asoc_id, asoc['nombre'], municipio_id, municipio_nombre, asoc['estado']),
+            )
+            insertadas += cursor.rowcount
+            conn.commit()
+        except Exception as e:
+            conn.rollback()
+            print(f"❌ Error insertando Asocomunal '{asoc['nombre']}': {e}")
+    print(f'✅ Asocomunales insertadas: {insertadas}')
+    return insertadas
+
+def obtener_cargo_presidente_id(cursor) -> int | None:
+    cursor.execute('SELECT id FROM public."CARGO" WHERE nombre = %s', ('Presidente',))
+    fila = cursor.fetchone()
+    return fila[0] if fila else None
+
+def insertar_persona_presidente(cursor, jac_id: int, cargo_pres_id: int,
+                                municipio_id: int | None,
+                                nombre_pres_raw: str,
+                                cedula: str | None = None,
+                                lugar_exp: str | None = None,
+                                telefono: str | None = None,
+                                correo: str | None = None) -> int:
+    nombre, apellido = parsear_nombre(nombre_pres_raw)
+    cursor.execute(
+        """
+        INSERT INTO public."PERSONA"
+            ("JAC_id", cargo_id, municipio_id, nombre, apellido,
+             cedula, lugar_expedicion_cedula, telefono, correo)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        RETURNING id
+        """,
+        (jac_id, cargo_pres_id, municipio_id,
+         nombre[:100], (apellido[:100] if apellido else ''),
+         cedula, lugar_exp, telefono, correo),
+    )
+    persona_id = cursor.fetchone()[0]
+
+    cursor.execute(
+        'INSERT INTO public."PERSONA_JAC" (jac_id, persona_id) VALUES (%s, %s)',
+        (jac_id, persona_id),
+    )
+    cursor.execute(
+        """
+        INSERT INTO public."PERSONA_CARGO" (persona_id, cargo_id, estado_id)
+        VALUES (%s, %s, 1)
+        """,
+        (persona_id, cargo_pres_id),
+    )
+    return persona_id
+
+def migrar_sheet_jac_cauca(cursor, conn, df, asoc_map, municipio_lookup, cargo_pres_id):
+    print(f'\n⏳ Migrando sheet "{SHEET_JAC_CAUCA}" ({len(df)} filas)...')
+    total_jac, total_persona = 0, 0
+    errores = []
+    for index, row in df.iterrows():
+        try:
+            nombre_corto    = limpiar(row.iloc[COLS_CAUCA['nombre_corto']],    100)
+            nombre_completo = limpiar(row.iloc[COLS_CAUCA['nombre_completo']], 100)
+            if not nombre_corto and not nombre_completo:
+                continue
+            if not nombre_completo:
+                nombre_completo = nombre_corto
+            if not nombre_corto:
+                nombre_corto = None
+
+            estado = mapear_estado(row.iloc[COLS_CAUCA['estado']])
+
+            municipio_nombre = limpiar(row.iloc[COLS_CAUCA['municipio']])
+            municipio_id     = municipio_lookup.get(normalizar(municipio_nombre)) if municipio_nombre else None
+            asocomunal_id    = asoc_map.get(municipio_id) if municipio_id else None
+
+            ruc_raw = row.iloc[COLS_CAUCA['ruc']]
+            numero_ruc = limpiar(ruc_raw, 30) if es_ruc_valido(ruc_raw) else None
+
+            cursor.execute(
+                """
+                INSERT INTO public."JAC"
+                    (asocomunal_id, estado, nombre_corto, nombre_completo, numero_ruc)
+                VALUES (%s, %s, %s, %s, %s)
+                RETURNING id
+                """,
+                (asocomunal_id, estado, nombre_corto, nombre_completo, numero_ruc),
+            )
+            jac_id = cursor.fetchone()[0]
+            total_jac += 1
+
+            nombre_pres_raw = limpiar(row.iloc[COLS_CAUCA['nombre_pres']])
+            if nombre_pres_raw:
+                cedula    = limpiar(num_a_str(row.iloc[COLS_CAUCA['cedula']]),    20)
+                telefono  = limpiar(num_a_str(row.iloc[COLS_CAUCA['telefono']]), 20)
+                lugar_exp = limpiar(row.iloc[COLS_CAUCA['lugar_exp']], 50)
+                correo    = limpiar(row.iloc[COLS_CAUCA['correo']],   150)
+
+                insertar_persona_presidente(
+                    cursor, jac_id, cargo_pres_id, municipio_id,
+                    nombre_pres_raw, cedula, lugar_exp, telefono, correo,
+                )
+                total_persona += 1
+
+            conn.commit()
+        except Exception as e:
+            conn.rollback()
+            errores.append({
+                'sheet': SHEET_JAC_CAUCA,
+                'fila_excel': int(index) + 5,  # header en fila 4 (1-based)
+                'error': str(e),
+            })
+    print(f'✅ {SHEET_JAC_CAUCA}: JACs={total_jac}, presidentes={total_persona}')
+    return total_jac, total_persona, errores
+
+def migrar_sheet_jac_popayan(cursor, conn, df, asoc_map, cargo_pres_id):
+    print(f'\n⏳ Migrando sheet "{SHEET_JAC_POPAYAN}" ({len(df)} filas)...')
+    municipio_id  = POPAYAN_MUNICIPIO_ID
+    asocomunal_id = asoc_map.get(municipio_id)
+    total_jac, total_persona = 0, 0
+    errores = []
+    for index, row in df.iterrows():
+        try:
+            nombre_completo = limpiar(row.iloc[COLS_POPAYAN['nombre_completo']], 100)
+            if not nombre_completo:
+                continue
+            estado = mapear_estado(row.iloc[COLS_POPAYAN['estado']])
+
+            cursor.execute(
+                """
+                INSERT INTO public."JAC"
+                    (asocomunal_id, estado, nombre_corto, nombre_completo, numero_ruc)
+                VALUES (%s, %s, %s, %s, %s)
+                RETURNING id
+                """,
+                (asocomunal_id, estado, None, nombre_completo, None),
+            )
+            jac_id = cursor.fetchone()[0]
+            total_jac += 1
+
+            nombre_pres_raw = limpiar(row.iloc[COLS_POPAYAN['nombre_pres']])
+            if nombre_pres_raw:
+                tel_raw = row.iloc[COLS_POPAYAN['telefono']]
+                if es_nan(tel_raw):
+                    tel_raw = row.iloc[COLS_POPAYAN['telefono_alt']]
+                telefono = limpiar(num_a_str(tel_raw), 20)
+                correo   = limpiar(row.iloc[COLS_POPAYAN['correo']], 150)
+
+                insertar_persona_presidente(
+                    cursor, jac_id, cargo_pres_id, municipio_id,
+                    nombre_pres_raw, None, None, telefono, correo,
+                )
+                total_persona += 1
+
+            conn.commit()
+        except Exception as e:
+            conn.rollback()
+            errores.append({
+                'sheet': SHEET_JAC_POPAYAN,
+                'fila_excel': int(index) + 3,  # header en fila 2 (1-based)
+                'error': str(e),
+            })
+    print(f'✅ {SHEET_JAC_POPAYAN}: JACs={total_jac}, presidentes={total_persona}')
+    return total_jac, total_persona, errores
+
+def actualizar_canceladas(cursor, conn, df, asoc_map, municipio_lookup):
+    print(f'\n⏳ Procesando sheet "{SHEET_CANCELADAS}" ({len(df)} filas)...')
+    actualizadas = 0
+    insertadas   = 0
+    omitidas     = 0
+    errores      = []
+    for index, row in df.iterrows():
+        try:
+            flag = limpiar(row.iloc[COLS_CANCEL['flag']])
+            # Sólo procesar las marcadas explícitamente como 'cancelada'
+            if not flag or normalizar(flag) != 'CANCELADA':
+                omitidas += 1
+                continue
+
+            municipio_nombre = limpiar(row.iloc[COLS_CANCEL['municipio']])
+            nombre_corto_raw = limpiar(row.iloc[COLS_CANCEL['nombre_corto']])
+            nombre_completo  = limpiar(row.iloc[COLS_CANCEL['nombre_completo']], 100)
+            if not nombre_corto_raw and not nombre_completo:
+                continue
+
+            nombre_corto = quitar_marcador_cancelada(nombre_corto_raw or '')[:100] or None
+            municipio_id = municipio_lookup.get(normalizar(municipio_nombre)) if municipio_nombre else None
+            asoc_id      = asoc_map.get(municipio_id) if municipio_id else None
+
+            # Intentar UPDATE por nombre_corto (case-insensitive, sin acentos)
+            updated = 0
+            if nombre_corto:
+                cursor.execute(
+                    """
+                    UPDATE public."JAC"
+                       SET estado = 'cancelada'
+                     WHERE UPPER(TRIM(nombre_corto)) = UPPER(TRIM(%s))
+                    """,
+                    (nombre_corto,),
+                )
+                updated = cursor.rowcount
+
+            if updated > 0:
+                actualizadas += updated
+            else:
+                # No existe → insertar como nueva con estado 'cancelada'
+                nc_final = nombre_completo or nombre_corto or 'JAC CANCELADA'
+                cursor.execute(
+                    """
+                    INSERT INTO public."JAC"
+                        (asocomunal_id, estado, nombre_corto, nombre_completo, numero_ruc)
+                    VALUES (%s, 'cancelada', %s, %s, NULL)
+                    """,
+                    (asoc_id, nombre_corto, nc_final[:100]),
+                )
+                insertadas += 1
+
+            conn.commit()
+        except Exception as e:
+            conn.rollback()
+            errores.append({
+                'sheet': SHEET_CANCELADAS,
+                'fila_excel': int(index) + 3,
+                'error': str(e),
+            })
+    print(f'✅ {SHEET_CANCELADAS}: actualizadas={actualizadas}, '
+          f'insertadas={insertadas}, omitidas={omitidas}')
+    return actualizadas, insertadas, errores
+
+# ── Main ─────────────────────────────────────────────────────────────────────
 def main():
-    # ── 1. Variables de entorno ───────────────────────────────────────────────
     load_dotenv()
     DB_HOST     = os.getenv('DB_HOST', 'localhost')
     DB_PORT     = os.getenv('DB_PORT', '5432')
@@ -154,7 +468,6 @@ def main():
         print('❌ Faltan credenciales en .env (DB_USER o DB_PASSWORD)')
         return
 
-    # ── 2. Conexión a la base de datos ────────────────────────────────────────
     try:
         conn = psycopg2.connect(
             host=DB_HOST, port=DB_PORT,
@@ -166,177 +479,51 @@ def main():
         print(f'❌ Error al conectar a PostgreSQL: {e}')
         return
 
-    # ── 3. Asegurar cargos base (idempotente) ─────────────────────────────────
-    cargos_base =[
-        'Presidente', 'Vicepresidente', 'Tesorero', 'Secretario',
-        'Fiscal Principal', 'Fiscal Suplente', 'Comisión de Convivencia',
-        'Delegado Asociación', 'Comisión del Deporte', 'Promotor',
-    ]
-    for cargo_nombre in cargos_base:
-        cursor.execute(
-            'INSERT INTO public."CARGO" (nombre) VALUES (%s) ON CONFLICT DO NOTHING',
-            (cargo_nombre,),
-        )
-    conn.commit()
-    print('✅ Cargos base verificados/insertados.')
-
-    cursor.execute('SELECT id FROM public."CARGO" WHERE nombre = %s', ('Presidente',))
-    fila_cargo = cursor.fetchone()
-    if not fila_cargo:
-        print('❌ No se encontró el cargo "Presidente". Abortando.')
+    # 1. Cargo Presidente (debe existir vía seed-cargo.sql)
+    cargo_pres_id = obtener_cargo_presidente_id(cursor)
+    if not cargo_pres_id:
+        print('❌ No se encontró el cargo "Presidente". Corre seed-cargo.sql primero.')
         cursor.close(); conn.close()
         return
-    cargo_presidente_id: int = fila_cargo[0]
 
-    # ── 4. MIGRACIÓN DE ASOCOMUNALES ────────────────────────────────────────
-    print('⏳ Migrando Asocomunales...')
-    total_asoc_insertadas = 0
-    for i, asoc in enumerate(ASOCOMUNALES_DATA):
-        # PK no es auto incremental en ASOCOMUNAL, la definimos nosotros empezando desde 1.
-        asoc_id = i + 1 
-        nombre = asoc['nombre']
-        municipio_id = asoc['municipioId']
-        municipio_nombre = obtener_nombre_municipio(municipio_id)
-        estado = asoc['estado']
-        
-        try:
-            cursor.execute(
-                """
-                INSERT INTO public."ASOCOMUNAL"
-                    (id, nombre, municipio_id, municipio_nombre, estado)
-                VALUES (%s, %s, %s, %s, %s)
-                ON CONFLICT (id) DO NOTHING
-                """,
-                (asoc_id, nombre, municipio_id, municipio_nombre, estado),
-            )
-            total_asoc_insertadas += cursor.rowcount
-            conn.commit()
-        except Exception as e:
-            conn.rollback()
-            print(f"❌ Error insertando Asocomunal '{nombre}': {e}")
-            
-    print(f'✅ Asocomunales validadas/insertadas: {total_asoc_insertadas}')
+    # 2. ASOCOMUNALES
+    insertar_asocomunales(cursor, conn)
 
-    # ── 5. Cargar el Excel (JAC) ──────────────────────────────────────────────
+    asoc_map         = construir_mapa_asocomunal(ASOCOMUNALES_DATA)
+    municipio_lookup = construir_lookup_municipios()
+
     archivo = './statics/datos.xlsx'
     if not os.path.exists(archivo):
-        print(f'⚠️ Archivo {archivo} no encontrado. Finalizando proceso temprano.')
+        print(f'⚠️ Archivo {archivo} no encontrado. Finalizando.')
         cursor.close(); conn.close()
         return
 
     print(f'\n⏳ Leyendo {archivo}...')
-    df = pd.read_excel(archivo, header=3)
-    print(f'ℹ️  Total filas encontradas en Excel: {len(df)}')
+    df_cauca   = pd.read_excel(archivo, sheet_name=SHEET_JAC_CAUCA,   header=3)
+    df_popayan = pd.read_excel(archivo, sheet_name=SHEET_JAC_POPAYAN, header=1)
+    df_cancel  = pd.read_excel(archivo, sheet_name=SHEET_CANCELADAS,  header=1)
 
-    # ── 6. Migración fila a fila (JACs) ───────────────────────────────────────
-    total_jac     = 0
-    total_persona = 0
-    errores       =[]
+    todos_errores: list[dict] = []
 
-    for index, row in df.iterrows():
-        try:
-            # ── 6.1 Datos de la JAC ───────────────────────────────────────────
-            nombre_corto    = limpiar(col(row, COL_NOMBRE_CORTO),    max_len=100)
-            nombre_completo = limpiar(col(row, COL_NOMBRE_COMPLETO), max_len=100)
+    # 3. JAC CAUCA
+    _, _, e1 = migrar_sheet_jac_cauca(cursor, conn, df_cauca, asoc_map, municipio_lookup, cargo_pres_id)
+    todos_errores.extend(e1)
 
-            if not nombre_corto and not nombre_completo:
-                continue
+    # 4. JAC POPAYAN
+    _, _, e2 = migrar_sheet_jac_popayan(cursor, conn, df_popayan, asoc_map, cargo_pres_id)
+    todos_errores.extend(e2)
 
-            if not nombre_completo: nombre_completo = nombre_corto
-            if not nombre_corto:    nombre_corto = None
+    # 5. CANCELADAS
+    _, _, e3 = actualizar_canceladas(cursor, conn, df_cancel, asoc_map, municipio_lookup)
+    todos_errores.extend(e3)
 
-            estado  = mapear_estado(col(row, COL_ACTIVA))
-            ruc_raw = col(row, COL_RUC)
-            numero_ruc = limpiar(ruc_raw, max_len=30) if es_ruc_valido(ruc_raw) else None
-
-            # ── 6.2 Insertar JAC ──────────────────────────────────────────────
-            cursor.execute(
-                """
-                INSERT INTO public."JAC"
-                    (estado, nombre_corto, nombre_completo, numero_RUC)
-                VALUES (%s, %s, %s, %s)
-                RETURNING id
-                """,
-                (estado, nombre_corto, nombre_completo, numero_ruc),
-            )
-            jac_id: int = cursor.fetchone()[0]
-            total_jac += 1
-
-            # ── 6.3 Datos del presidente ──────────────────────────────────────
-            nombre_pres_raw = limpiar(col(row, COL_NOMBRE_PRES))
-
-            if nombre_pres_raw:
-                nombre, apellido = parsear_nombre(nombre_pres_raw)
-
-                cedula_raw = col(row, COL_CEDULA)
-                cedula = limpiar(str(int(cedula_raw)) if isinstance(cedula_raw, float) and not math.isnan(cedula_raw) else cedula_raw, max_len=20)
-
-                telefono_raw = col(row, COL_TELEFONO)
-                telefono = limpiar(str(int(telefono_raw)) if isinstance(telefono_raw, float) and not math.isnan(telefono_raw) else telefono_raw, max_len=20)
-
-                lugar_exp = limpiar(col(row, COL_LUGAR_EXP), max_len=50)
-                correo    = limpiar(col(row, COL_CORREO),     max_len=100)
-
-                # Insertar persona
-                cursor.execute(
-                    """
-                    INSERT INTO public."PERSONA"
-                        ("JAC_id", cargo_id, nombre, apellido,
-                         cedula, lugar_expedicion_cedula, telefono, correo)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                    RETURNING id
-                    """,
-                    (jac_id, cargo_presidente_id,
-                     nombre[:100], apellido[:100] if apellido else '',
-                     cedula, lugar_exp, telefono, correo),
-                )
-                persona_id: int = cursor.fetchone()[0]
-
-                # Vincular persona ↔ JAC
-                cursor.execute(
-                    'INSERT INTO public."PERSONA_JAC" (jac_id, persona_id) VALUES (%s, %s)',
-                    (jac_id, persona_id),
-                )
-
-                # Registrar cargo histórico
-                cursor.execute(
-                    """
-                    INSERT INTO public."PERSONA_CARGO"
-                        (persona_id, cargo_id, estado_id)
-                    VALUES (%s, %s, 1)
-                    """,
-                    (persona_id, cargo_presidente_id),
-                )
-                total_persona += 1
-
-            conn.commit()
-
-        except Exception as e:
-            conn.rollback()
-            fila_dict = {}
-            for c in[COL_NOMBRE_CORTO, COL_NOMBRE_COMPLETO, COL_ACTIVA,
-                       COL_NOMBRE_PRES, COL_CEDULA]:
-                val = row.iloc[c]
-                if not es_nan(val):
-                    fila_dict[str(c)] = str(val)
-
-            errores.append({
-                'fila_excel': int(index) + 5,
-                'error': str(e),
-                'datos_fila': fila_dict,
-            })
-
-    # ── 7. Reporte final ──────────────────────────────────────────────────────
-    print(f'\n✅ JACs insertadas desde Excel:      {total_jac}')
-    print(f'✅ Presidentes de JAC migrados:      {total_persona}')
-
-    if errores:
+    if todos_errores:
         reporte = 'errores_importacion.json'
         with open(reporte, 'w', encoding='utf-8') as f:
-            json.dump(errores, f, ensure_ascii=False, indent=4)
-        print(f'⚠️  {len(errores)} filas del excel con error → ver {reporte}')
+            json.dump(todos_errores, f, ensure_ascii=False, indent=4)
+        print(f'\n⚠️  {len(todos_errores)} filas con error → ver {reporte}')
     else:
-        print('✅ Sin errores en la importación global.')
+        print('\n✅ Sin errores en la importación global.')
 
     cursor.close()
     conn.close()
