@@ -62,6 +62,7 @@ export class JacService {
       where: { estado: EstadoJAC.ACTIVA },
       relations: ['asocomunal', 'personas', 'personas.cargo'],
       order: { nombreCompleto: 'ASC' },
+      take: 100, // Limite razonable para evitar sobrecargar la memoria
     });
     return JacItemDto.fromEntities(jacs);
   }

@@ -36,13 +36,13 @@ COLS_CAUCA = {
     'nombre_corto':    2,
     'estado':          4,
     'nombre_completo': 6,
-    'ruc':             9,
-    'cargo':           10,
-    'nombre_pres':     11,
-    'cedula':          12,
-    'lugar_exp':       13,
-    'telefono':        14,
-    'correo':          15,
+    'ruc':             8,
+    'cargo':           9,
+    'nombre_pres':     10,
+    'cedula':          11,
+    'lugar_exp':       12,
+    'telefono':        13,
+    'correo':          14,
 }
 
 # ── Índices de columnas: sheet "JAC POPAYAN" (header en fila 2 del Excel) ────

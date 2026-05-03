@@ -1,7 +1,8 @@
+-- Active: @jac_cauca_db
 -- =============================================================
 -- SEED: Tabla CARGO
 -- Cargos estándar de la junta directiva de una JAC en Colombia.
--- Ejecutar UNA sola vez antes de correr la migración de datos.
+-- Ejecutar UNA sola vez ANTES de correr la migración de datos.
 -- =============================================================
 
 INSERT INTO public."CARGO" (nombre) VALUES

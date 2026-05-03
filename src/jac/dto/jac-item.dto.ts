@@ -2,7 +2,7 @@ import { EstadoJAC, JAC } from '../entities/jac.entity';
 import { Persona } from '../../afiliados/entities/persona.entity';
 
 export type EstadoDocumental = 'Vigente' | 'Vencida' | 'Por vencer';
-export type EstadoOrganizativo = EstadoJAC;
+export type EstadoOrganizativo = 'Activa' | 'Inactiva' | 'Cancelada';
 export type EstadoAprobacion = 'Activo' | 'Pendiente' | 'Rechazado';
 export type RolAfiliado =
   | 'Presidente'
@@ -47,8 +47,8 @@ export class JacItemDto {
     dto.nombre = jac.nombreCompleto;
     dto.municipio = jac.asocomunal?.municipioNombre ?? '';
     dto.barrio = jac.nombreCorto ?? '';
-    dto.documental = 'Vencida';
-    dto.organizativo = jac.estado;
+    dto.documental = jac.numeroRUC ? 'Vigente' : 'Vencida';
+    dto.organizativo = jac.estado === 'activa' ? 'Activa' : jac.estado === 'inactiva' ? 'Inactiva' : 'Cancelada';
     dto.aprobacion = 'Rechazado';
     dto.miembros = (jac.personas ?? []).map(AfiliadoItemDto.fromEntity);
     dto.afiliados = dto.miembros.length;
