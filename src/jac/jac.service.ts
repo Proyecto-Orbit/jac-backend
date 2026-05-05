@@ -62,7 +62,7 @@ export class JacService {
       where: { estado: EstadoJAC.ACTIVA },
       relations: ['asocomunal', 'personas', 'personas.cargo'],
       order: { nombreCompleto: 'ASC' },
-      take: 100, // Limite razonable para evitar sobrecargar la memoria
+      take: 1000, // Limite para evitar sobrecargar la memoria en caso de muchas JACs
     });
     return JacItemDto.fromEntities(jacs);
   }
@@ -76,7 +76,7 @@ export class JacService {
    */
   async findOne(id: number): Promise<JacItemDto> {
     const jac = await this.jacRepository.findOne({
-      where: { id, estado: EstadoJAC.ACTIVA },
+      where: { id },
       relations: ['asocomunal', 'personas', 'personas.cargo'],
     });
 
