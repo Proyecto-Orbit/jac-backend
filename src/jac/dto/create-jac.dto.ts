@@ -1,125 +1,64 @@
-/**
- * DTO para crear una nueva JAC
- * 
- * Los DTOs definen qué datos se esperan en las peticiones HTTP
- * y aplican validaciones automáticas con class-validator
- * 
- * @decorator @IsString() - Valida que sea texto
- * @decorator @IsNotEmpty() - Valida que no esté vacío
- * @decorator @IsOptional() - El campo es opcional
- * @decorator @IsEmail() - Valida formato de email
- * @decorator @IsInt() - Valida que sea número entero
- */
 import {
-  IsString,
+  IsEnum,
+  IsInt,
   IsNotEmpty,
   IsOptional,
-  IsEmail,
-  IsInt,
+  IsString,
   MinLength,
-  IsNumber,
 } from 'class-validator';
+import { EstadoJAC } from '../entities/jac.entity';
 
+/**
+ * DTO para crear una nueva JAC.
+ *
+ * @remarks
+ * El `id` es generado automáticamente por la base de datos.
+ * Si no se envía `estado`, la JAC se crea como `activa` por defecto.
+ */
 export class CreateJACDto {
+  /**
+   * ID de la Asocomunal a la que pertenece esta JAC (opcional al crear).
+   * La asociación puede realizarse o actualizarse posteriormente.
+   */
+  @IsOptional()
+  @IsInt()
+  asocomunalId?: number;
+
+  /**
+   * Estado inicial de la JAC.
+   * Si se omite, se establece `activa` automáticamente.
+   *
+   * @see {@link EstadoJAC}
+   */
+  @IsOptional()
+  @IsEnum(EstadoJAC, {
+    message: 'El estado debe ser: activa, inactiva o cancelada',
+  })
+  estado?: EstadoJAC;
+
+  /**
+   * Nombre abreviado de la JAC.
+   *
+   * @example "JAC El Pino"
+   */
   @IsOptional()
   @IsString()
-  numero?: string;
+  nombreCorto?: string;
 
-  @IsString()
-  @IsNotEmpty({ message: 'El municipio es obligatorio' })
-  @MinLength(2, { message: 'El municipio debe tener al menos 2 caracteres' })
-  MUNICIPIO!: string;
-
-  @IsOptional()
-  @IsString()
-  nombreCortoJAC?: string;
-
+  /**
+   * Nombre completo oficial de la JAC. Campo obligatorio.
+   *
+   * @example "Junta de Acción Comunal Barrio El Pino"
+   */
   @IsString()
   @IsNotEmpty({ message: 'El nombre completo es obligatorio' })
-  @MinLength(5, { message: 'El nombre debe tener al menos 5 caracteres' })
-  nombreCompletoJunta!: string;
+  @MinLength(3, { message: 'El nombre completo debe tener al menos 3 caracteres' })
+  nombreCompleto!: string;
 
-  @IsOptional()
-  @IsString()
-  noCarpeta?: string;
-
-  @IsOptional()
-  @IsString()
-  noCaja?: string;
-
-  @IsOptional()
-  @IsString()
-  ACTIVA?: string;
-
-  @IsOptional()
-  @IsString()
-  observacionesArchivo?: string;
-
-  @IsOptional()
-  @IsString()
-  observacionesArchivoFisico?: string;
-
-  @IsOptional()
-  @IsString()
-  tipoDeOrganismoComunal?: string;
-
-  @IsOptional()
-  @IsString()
-  primerConsiderandoPersoneriaJuridica?: string;
-
-  @IsOptional()
-  @IsString()
-  cargo?: string;
-
-  @IsOptional()
-  @IsString()
-  nombreDePresidente?: string;
-
-  @IsOptional()
-  @IsString()
-  numeroDeIdentificacion?: string;
-
-  @IsOptional()
-  @IsString()
-  lugarDeExpedicion?: string;
-
-  @IsOptional()
-  @IsString()
-  cambioPresidente?: string;
-
-  @IsOptional()
-  @IsString()
-  numeroTelefonico?: string;
-
-  @IsOptional()
-  @IsEmail({}, { message: 'El correo electrónico no es válido' })
-  correoElectronico?: string;
-
-  @IsOptional()
-  @IsString()
-  estadoActualizacion?: string;
-
-  @IsOptional()
-  @IsString()
-  nombreDeComites?: string;
-
-  @IsOptional()
-  @IsInt()
-  fechaDeAprobacion?: number;
-
-  @IsOptional()
-  @IsInt()
-  numeroDeAfiliados?: number;
-
+  /**
+   * Número de RUC (Registro Único Comunal) de la JAC.
+   */
   @IsOptional()
   @IsString()
   numeroRUC?: string;
-
-  @IsOptional()
-  @IsNumber()
-  asocomunalId?: number;
-
-  @IsOptional()
-  @IsString()
-  creadoPor?: string;
 }

@@ -1,0 +1,186 @@
+=========================================================
+  ENDPOINTS DEL RECURSO JAC
+  Base URL: http://localhost:3001
+  Autenticación: Cookie HTTP-Only  →  rol=admin
+=========================================================
+
+---------------------------------------------------------
+1. CREAR JAC
+---------------------------------------------------------
+Método  : POST
+Ruta    : /jac
+Auth    : rol=admin
+
+Body (JSON):
+{
+  "nombreCompleto": "Junta de Acción Comunal Barrio El Pino",  ← OBLIGATORIO
+  "nombreCorto":    "JAC El Pino",                             ← opcional
+  "asocomunalId":   3,                                         ← opcional
+  "numeroRUC":      "900123456-1"                              ← opcional
+}
+
+Respuesta 201 Created:
+{
+  "id":             1,
+  "asocomunalId":   3,
+  "estadoId":       1,
+  "nombreCorto":    "JAC El Pino",
+  "nombreCompleto": "Junta de Acción Comunal Barrio El Pino",
+  "numeroRUC":      "900123456-1",
+  "asocomunal": {
+    "id":             3,
+    "nombre":         "Asocomunal Norte",
+    "municipioId":    11001,
+    "municipioNombre":"Bogotá D.C.",
+    "estado":         true
+  }
+}
+
+---------------------------------------------------------
+2. LISTAR TODAS LAS JAC ACTIVAS
+---------------------------------------------------------
+Método  : GET
+Ruta    : /jac
+Auth    : rol=admin
+
+Respuesta 200 OK:
+[
+  {
+    "id":             1,
+    "asocomunalId":   3,
+    "estadoId":       1,
+    "nombreCorto":    "JAC El Pino",
+    "nombreCompleto": "Junta de Acción Comunal Barrio El Pino",
+    "numeroRUC":      null,
+    "asocomunal": { ... }
+  },
+  ...
+]
+
+Nota: Solo retorna JACs con estado_id = 1 (activas).
+      Incluye datos de la Asocomunal vinculada.
+
+---------------------------------------------------------
+3. BUSCAR JAC CON FILTROS
+---------------------------------------------------------
+Método  : GET
+Ruta    : /jac/buscar
+Auth    : rol=admin
+
+Query params (todos opcionales):
+  nombre    → Búsqueda parcial en nombre_completo y nombre_corto
+              (insensible a mayúsculas)
+  municipio → Búsqueda parcial en municipio_nombre de la Asocomunal
+              vinculada (insensible a mayúsculas)
+  estado    → "activa" | "inactiva"
+              Si se omite, se retornan JACs en cualquier estado.
+
+Ejemplos:
+  GET /jac/buscar?nombre=el+pino
+  GET /jac/buscar?municipio=bogot%C3%A1&estado=activa
+  GET /jac/buscar?estado=inactiva
+  GET /jac/buscar?nombre=comunal&municipio=soacha&estado=activa
+
+Respuesta 200 OK:
+[
+  { ... },  ← misma estructura que /jac
+  ...
+]
+
+Nota: Las JACs sin Asocomunal asignada NO aparecen al filtrar por municipio.
+
+---------------------------------------------------------
+4. OBTENER JAC POR ID
+---------------------------------------------------------
+Método  : GET
+Ruta    : /jac/:id
+Auth    : rol=admin
+
+Parámetro de ruta:
+  id  → Entero positivo (ID de la JAC)
+
+Ejemplo:
+  GET /jac/1
+
+Respuesta 200 OK:
+{
+  "id":             1,
+  "asocomunalId":   3,
+  "estadoId":       1,
+  "nombreCorto":    "JAC El Pino",
+  "nombreCompleto": "Junta de Acción Comunal Barrio El Pino",
+  "numeroRUC":      null,
+  "asocomunal": { ... }
+}
+
+Respuesta 404 Not Found (si no existe o está inactiva):
+{
+  "statusCode": 404,
+  "message":    "JAC con ID 1 no encontrada"
+}
+
+---------------------------------------------------------
+5. ACTUALIZAR JAC
+---------------------------------------------------------
+Método  : PATCH
+Ruta    : /jac/:id
+Auth    : rol=admin
+
+Parámetro de ruta:
+  id  → Entero positivo (ID de la JAC)
+
+Body (JSON) — todos los campos son opcionales:
+{
+  "nombreCompleto": "Nuevo nombre completo",
+  "nombreCorto":    "Nuevo nombre corto",
+  "asocomunalId":   5,
+  "numeroRUC":      "800000001-2",
+  "estadoId":       1
+}
+
+Respuesta 200 OK:
+{
+  ... JAC actualizada ...
+}
+
+Respuesta 404 Not Found:
+{
+  "statusCode": 404,
+  "message":    "JAC con ID 1 no encontrada"
+}
+
+---------------------------------------------------------
+6. ELIMINAR JAC (LÓGICO)
+---------------------------------------------------------
+Método  : DELETE
+Ruta    : /jac/:id
+Auth    : rol=admin
+
+Parámetro de ruta:
+  id  → Entero positivo (ID de la JAC)
+
+Ejemplo:
+  DELETE /jac/1
+
+Respuesta 200 OK:
+{
+  "message": "JAC \"Junta de Acción Comunal Barrio El Pino\" desactivada correctamente"
+}
+
+Nota: No borra el registro. Cambia estado_id a 2 (inactiva).
+      El registro permanece en la BD para mantener historial.
+
+Respuesta 404 Not Found:
+{
+  "statusCode": 404,
+  "message":    "JAC con ID 1 no encontrada"
+}
+
+=========================================================
+  CÓDIGOS DE ERROR GENERALES
+=========================================================
+400 Bad Request   → Validación de DTO fallida (campos inválidos)
+401 Unauthorized  → Cookie "rol" ausente
+403 Forbidden     → El rol del usuario no tiene permiso
+404 Not Found     → Recurso no encontrado
+=========================================================
