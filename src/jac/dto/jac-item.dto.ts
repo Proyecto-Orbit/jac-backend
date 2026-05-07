@@ -3,7 +3,6 @@ import { Persona } from '../../afiliados/entities/persona.entity';
 
 export type EstadoDocumental = 'Vigente' | 'Vencida' | 'Por vencer';
 export type EstadoOrganizativo = 'Activa' | 'Inactiva' | 'Cancelada';
-export type EstadoAprobacion = 'Activo' | 'Pendiente' | 'Rechazado';
 export type TipoJac = 'Barrio' | 'Vereda';
 export type RolAfiliado =
   | 'Presidente'
@@ -44,9 +43,7 @@ export class JacItemDto {
   municipio!: string;
   barrio!: string;
   afiliados!: number;
-  documental!: EstadoDocumental;
-  organizativo!: EstadoOrganizativo;
-  aprobacion!: EstadoAprobacion;
+  estado!: EstadoOrganizativo;
   tipo!: TipoJac;
   /**
    * Mínimo legal de afiliados para sostener la JAC activa según su tipo.
@@ -58,6 +55,7 @@ export class JacItemDto {
    */
   enRiesgo!: boolean;
   miembros!: AfiliadoItemDto[];
+  numeroRUC!: string | null;
 
   static fromEntity(jac: JAC): JacItemDto {
     const dto = new JacItemDto();
@@ -65,11 +63,10 @@ export class JacItemDto {
     dto.nombre = jac.nombreCompleto;
     dto.municipio = jac.asocomunal?.municipioNombre ?? '';
     dto.barrio = jac.nombreCorto ?? '';
-    dto.documental = jac.numeroRUC ? 'Vigente' : 'Vencida';
-    dto.organizativo = jac.estado === 'activa' ? 'Activa' : jac.estado === 'inactiva' ? 'Inactiva' : 'Cancelada';
-    dto.aprobacion = 'Rechazado';
+    dto.estado = jac.estado === 'activa' ? 'Activa' : jac.estado === 'inactiva' ? 'Inactiva' : 'Cancelada';
     dto.miembros = (jac.personas ?? []).map(AfiliadoItemDto.fromEntity);
     dto.afiliados = dto.miembros.length;
+    dto.numeroRUC = jac.numeroRUC;
 
     const esVereda = jac.tipo === TipoJAC.VEREDA;
     dto.tipo = esVereda ? 'Vereda' : 'Barrio';
