@@ -30,13 +30,18 @@ export class JacService {
   /**
    * Crea una nueva JAC y notifica al microservicio de Asocomunales.
    *
+   * @remarks
+   * Toda JAC se crea con `estado = inactiva`. Solo se activa cuando
+   * alcanza el mínimo legal de afiliados según la Ley 2166 de 2021,
+   * Art. 11 (38 para barrio, 10 para vereda).
+   *
    * @param createJACDto - Datos validados de la nueva JAC.
    * @returns La JAC recién creada como {@link JACResponseDto}.
    */
   async create(createJACDto: CreateJACDto): Promise<JACResponseDto> {
     const jac = this.jacRepository.create({
       ...createJACDto,
-      estado: createJACDto.estado ?? EstadoJAC.ACTIVA,
+      estado: EstadoJAC.INACTIVA,
     });
     const saved = await this.jacRepository.save(jac);
 
