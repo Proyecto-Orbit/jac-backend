@@ -5,7 +5,7 @@ import { EstadoJAC, JAC } from './entities/jac.entity';
 import { CreateJACDto } from './dto/create-jac.dto';
 import { UpdateJACDto } from './dto/update-jac.dto';
 import { JACResponseDto } from './dto/jac-response.dto';
-import { JacItemDto } from './dto/jac-item.dto';
+import { JacItemDto, JacListItemDto } from './dto/jac-item.dto';
 import { SearchJACDto } from './dto/search-jac.dto';
 import { RabbitMQService } from '../rabbitmq/rabbitmq.service';
 
@@ -57,14 +57,14 @@ export class JacService {
    *
    * @returns Array de {@link JACResponseDto}.
    */
-  async findAll(limite: number = 100): Promise<JacItemDto[]> {
+  async findAll(limite: number = 100): Promise<JacListItemDto[]> {
     const jacs = await this.jacRepository.find({
       where: { estado: EstadoJAC.ACTIVA },
-      relations: ['asocomunal', 'personas', 'personas.cargo'],
+      relations: ['asocomunal', 'personas'],
       order: { nombreCompleto: 'ASC' },
       take: limite,
     });
-    return JacItemDto.fromEntities(jacs);
+    return JacListItemDto.fromEntities(jacs);
   }
 
   /**
@@ -99,12 +99,11 @@ export class JacService {
    * @param filters - Criterios de búsqueda definidos en {@link SearchJACDto}.
    * @returns Array de {@link JACResponseDto} que coinciden con los filtros.
    */
-  async search(filters: SearchJACDto): Promise<JacItemDto[]> {
+  async search(filters: SearchJACDto): Promise<JacListItemDto[]> {
     const qb = this.jacRepository
       .createQueryBuilder('jac')
       .leftJoinAndSelect('jac.asocomunal', 'asocomunal')
-      .leftJoinAndSelect('jac.personas', 'personas')
-      .leftJoinAndSelect('personas.cargo', 'cargo');
+      .leftJoinAndSelect('jac.personas', 'personas');
 
     if (filters.nombre) {
       const termino = `%${filters.nombre.toLowerCase()}%`;
@@ -124,10 +123,19 @@ export class JacService {
       qb.andWhere('jac.estado = :estado', { estado: filters.estado });
     }
 
+    if (filters.documental === 'Vigente') {
+      qb.andWhere("jac.numero_ruc IS NOT NULL AND jac.numero_ruc <> ''");
+    } else if (filters.documental === 'Vencida') {
+      qb.andWhere("(jac.numero_ruc IS NULL OR jac.numero_ruc = '')");
+    } else if (filters.documental === 'Por vencer') {
+      // Categoría no producible desde los datos actuales: regresa lista vacía.
+      qb.andWhere('1 = 0');
+    }
+
     qb.orderBy('jac.nombreCompleto', 'ASC').take(filters.limite ?? 100);
 
     const jacs = await qb.getMany();
-    return JacItemDto.fromEntities(jacs);
+    return JacListItemDto.fromEntities(jacs);
   }
 
   /**

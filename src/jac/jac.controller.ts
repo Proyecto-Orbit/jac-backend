@@ -15,7 +15,7 @@ import { CreateJACDto } from './dto/create-jac.dto';
 import { UpdateJACDto } from './dto/update-jac.dto';
 import { SearchJACDto } from './dto/search-jac.dto';
 import { JACResponseDto } from './dto/jac-response.dto';
-import { JacItemDto } from './dto/jac-item.dto';
+import { JacItemDto, JacListItemDto } from './dto/jac-item.dto';
 import { Auth } from '../auth/auth.decorator';
 import { Role } from '../auth/role.enum';
 
@@ -59,7 +59,7 @@ export class JacController {
   @Get()
   findAll(
     @Query('limite', new DefaultValuePipe(100), ParseIntPipe) limite: number,
-  ): Promise<JacItemDto[]> {
+  ): Promise<JacListItemDto[]> {
     return this.jacService.findAll(limite);
   }
 
@@ -77,7 +77,7 @@ export class JacController {
    */
   @Auth(Role.ADMIN)
   @Get('buscar')
-  search(@Query() filters: SearchJACDto): Promise<JacItemDto[]> {
+  search(@Query() filters: SearchJACDto): Promise<JacListItemDto[]> {
     return this.jacService.search(filters);
   }
 
