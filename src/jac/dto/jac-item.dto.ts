@@ -58,6 +58,7 @@ export class JacItemDto {
    */
   enRiesgo!: boolean;
   miembros!: AfiliadoItemDto[];
+  asocomunalId?: number | null;
 
   static fromEntity(jac: JAC): JacItemDto {
     const dto = new JacItemDto();
@@ -65,6 +66,7 @@ export class JacItemDto {
     dto.nombre = jac.nombreCompleto;
     dto.municipio = jac.asocomunal?.municipioNombre ?? '';
     dto.barrio = jac.nombreCorto ?? '';
+    dto.asocomunalId = jac.asocomunalId;
     dto.documental = jac.numeroRUC ? 'Vigente' : 'Vencida';
     dto.organizativo = jac.estado === 'activa' ? 'Activa' : jac.estado === 'inactiva' ? 'Inactiva' : 'Cancelada';
     dto.aprobacion = 'Rechazado';
