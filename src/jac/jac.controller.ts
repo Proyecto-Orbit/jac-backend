@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  DefaultValuePipe,
   Delete,
   Get,
   Param,
@@ -56,8 +57,10 @@ export class JacController {
    */
   @Auth(Role.ADMIN)
   @Get()
-  findAll(): Promise<JacItemDto[]> {
-    return this.jacService.findAll();
+  findAll(
+    @Query('limite', new DefaultValuePipe(100), ParseIntPipe) limite: number,
+  ): Promise<JacItemDto[]> {
+    return this.jacService.findAll(limite);
   }
 
   /**

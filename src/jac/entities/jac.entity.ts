@@ -25,6 +25,20 @@ export enum EstadoJAC {
 }
 
 /**
+ * Tipo de territorio en el que opera la JAC.
+ *
+ * @remarks
+ * El tipo determina el número mínimo de afiliados necesarios para
+ * que la JAC se mantenga activa según la Ley 2166 de 2021 (Art. 11):
+ * - `barrio` (zona urbana): mínimo 38 afiliados para subsistir.
+ * - `vereda` (zona rural): mínimo 10 afiliados para subsistir.
+ */
+export enum TipoJAC {
+  BARRIO = 'barrio',
+  VEREDA = 'vereda',
+}
+
+/**
  * Entidad que representa una Junta de Acción Comunal (JAC).
  *
  * @remarks
@@ -58,6 +72,23 @@ export class JAC {
     default: EstadoJAC.ACTIVA,
   })
   estado!: EstadoJAC;
+
+  /**
+   * Tipo de territorio que cubre la JAC (barrio urbano o vereda rural).
+   *
+   * @remarks
+   * Determina el umbral legal de afiliados activos. Por defecto se asume
+   * `barrio`, ya que el conjunto migrado desde Excel no incluyó esta
+   * información y la mayoría de JACs registradas son urbanas.
+   *
+   * @see {@link TipoJAC}
+   */
+  @Column({
+    type: 'enum',
+    enum: TipoJAC,
+    default: TipoJAC.BARRIO,
+  })
+  tipo!: TipoJAC;
 
   /**
    * Nombre abreviado o coloquial de la JAC (opcional).

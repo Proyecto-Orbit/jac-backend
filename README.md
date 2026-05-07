@@ -138,6 +138,9 @@ migracion/migracion.py
 #### - Limpieza post-migración
 migracion/post-migracion.sql
 
+#### - Asignación de tipo (Barrio/Vereda) a las JACs migradas
+migracion/asignar-tipo-jac.sql
+
 ---
 
 ## 🚀 Ejecución

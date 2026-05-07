@@ -1,4 +1,5 @@
-import { IsEnum, IsOptional, IsString } from 'class-validator';
+import { IsEnum, IsInt, IsOptional, IsString, Min, Max } from 'class-validator';
+import { Type } from 'class-transformer';
 import { EstadoJAC } from '../entities/jac.entity';
 
 /**
@@ -47,4 +48,16 @@ export class SearchJACDto {
     message: 'El estado debe ser: activa, inactiva o cancelada',
   })
   estado?: EstadoJAC;
+
+  /**
+   * Número máximo de JACs a retornar. Por defecto 100.
+   *
+   * @example 200
+   */
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt({ message: 'El límite debe ser un número entero' })
+  @Min(1, { message: 'El límite debe ser al menos 1' })
+  @Max(10000, { message: 'El límite no puede superar 10 000' })
+  limite?: number;
 }

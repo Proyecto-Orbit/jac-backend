@@ -57,12 +57,12 @@ export class JacService {
    *
    * @returns Array de {@link JACResponseDto}.
    */
-  async findAll(): Promise<JacItemDto[]> {
+  async findAll(limite: number = 100): Promise<JacItemDto[]> {
     const jacs = await this.jacRepository.find({
       where: { estado: EstadoJAC.ACTIVA },
       relations: ['asocomunal', 'personas', 'personas.cargo'],
       order: { nombreCompleto: 'ASC' },
-      take: 1000, // Limite para evitar sobrecargar la memoria en caso de muchas JACs
+      take: limite,
     });
     return JacItemDto.fromEntities(jacs);
   }
@@ -124,7 +124,7 @@ export class JacService {
       qb.andWhere('jac.estado = :estado', { estado: filters.estado });
     }
 
-    qb.orderBy('jac.nombre_completo', 'ASC');
+    qb.orderBy('jac.nombreCompleto', 'ASC').take(filters.limite ?? 100);
 
     const jacs = await qb.getMany();
     return JacItemDto.fromEntities(jacs);
