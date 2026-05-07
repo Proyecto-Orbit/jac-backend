@@ -93,6 +93,7 @@ export class JacItemDto {
    */
   enRiesgo!: boolean;
   miembros!: AfiliadoItemDto[];
+  numeroRUC!: string | null;
 
   static fromEntity(jac: JAC): JacItemDto {
     const dto = new JacItemDto();
@@ -105,6 +106,7 @@ export class JacItemDto {
     dto.organizativo = jac.estado === 'activa' ? 'Activa' : jac.estado === 'inactiva' ? 'Inactiva' : 'Cancelada';
     dto.miembros = (jac.personas ?? []).map((persona) => AfiliadoItemDto.fromEntity(persona));
     dto.afiliados = dto.miembros.length;
+    dto.numeroRUC = jac.numeroRUC;
 
     const esVereda = jac.tipo === TipoJAC.VEREDA;
     dto.tipo = esVereda ? 'Vereda' : 'Barrio';
