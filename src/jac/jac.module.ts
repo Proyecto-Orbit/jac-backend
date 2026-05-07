@@ -5,7 +5,6 @@ import { JacService } from './jac.service';
 import { JacController } from './jac.controller';
 import { RabbitMQModule } from '../rabbitmq/rabbitmq.module';
 import { RabbitMQController } from '../rabbitmq/rabbitmq.controller';
-import { JacConsumer } from './infrastructure/messaging/jac.consumer';
 import { AsocomunalModule } from '../asocomunal/asocomunal.module';
 
 /**
@@ -16,7 +15,6 @@ import { AsocomunalModule } from '../asocomunal/asocomunal.module';
  * - {@link JacController} — endpoints HTTP REST.
  * - {@link JacService} — lógica de negocio.
  * - {@link RabbitMQController} — consumidor de eventos de Asocomunales.
- * - {@link JacConsumer} — consumidor de confirmaciones del microservicio.
  *
  * Importa {@link AsocomunalModule} para que {@link RabbitMQController}
  * pueda persistir los eventos de Asocomunales recibidos vía RabbitMQ.
@@ -29,7 +27,6 @@ import { AsocomunalModule } from '../asocomunal/asocomunal.module';
   ],
   controllers: [
     JacController,
-    JacConsumer,
     RabbitMQController,
   ],
   providers: [JacService],

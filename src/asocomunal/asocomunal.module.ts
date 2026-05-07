@@ -2,18 +2,18 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Asocomunal } from './entities/asocomunal.entity';
 import { AsocomunalService } from './asocomunal.service';
+import { AsocomunalController } from './asocomunal.controller';
 
 /**
  * Módulo de réplica de Asocomunales.
  *
  * @remarks
- * No expone controladores HTTP. La entidad {@link Asocomunal} se gestiona
- * únicamente a través de eventos RabbitMQ consumidos en el módulo JAC.
- * Exporta {@link AsocomunalService} para que los consumidores de mensajes
- * puedan persistir los cambios recibidos.
+ * Expone un controlador HTTP de solo lectura para obtener la lista de réplicas.
+ * La entidad {@link Asocomunal} se sincroniza a través de eventos RabbitMQ.
  */
 @Module({
   imports: [TypeOrmModule.forFeature([Asocomunal])],
+  controllers: [AsocomunalController],
   providers: [AsocomunalService],
   exports: [AsocomunalService],
 })
