@@ -1,6 +1,8 @@
-import { IsEnum, IsInt, IsOptional, IsString, Min, Max } from 'class-validator';
+import { IsEnum, IsIn, IsInt, IsOptional, IsString, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
 import { EstadoJAC } from '../entities/jac.entity';
+
+export type EstadoDocumentalFiltro = 'Vigente' | 'Vencida' | 'Por vencer';
 
 /**
  * DTO para filtrar JACs en el endpoint de búsqueda.
@@ -48,6 +50,18 @@ export class SearchJACDto {
     message: 'El estado debe ser: activa, inactiva o cancelada',
   })
   estado?: EstadoJAC;
+
+  /**
+   * Estado documental derivado del `numero_RUC` de la JAC.
+   * - `Vigente`  → JAC con RUC registrado.
+   * - `Vencida`  → JAC sin RUC registrado.
+   * - `Por vencer` → categoría reservada (actualmente no producible desde los datos).
+   */
+  @IsOptional()
+  @IsIn(['Vigente', 'Vencida', 'Por vencer'], {
+    message: 'El estado documental debe ser: Vigente, Vencida o Por vencer',
+  })
+  documental?: EstadoDocumentalFiltro;
 
   /**
    * Número máximo de JACs a retornar. Por defecto 100.

@@ -3,7 +3,6 @@ import { Persona } from '../../afiliados/entities/persona.entity';
 
 export type EstadoDocumental = 'Vigente' | 'Vencida' | 'Por vencer';
 export type EstadoOrganizativo = 'Activa' | 'Inactiva' | 'Cancelada';
-export type EstadoAprobacion = 'Activo' | 'Pendiente' | 'Rechazado';
 export type TipoJac = 'Barrio' | 'Vereda';
 export type RolAfiliado =
   | 'Presidente'
@@ -38,6 +37,41 @@ export class AfiliadoItemDto {
   }
 }
 
+/**
+ * Vista ligera para listados (`GET /jac` y `GET /jac/buscar`).
+ *
+ * @remarks
+ * Contiene solo lo que la tabla principal necesita renderizar. Los filtros
+ * `documental`, `municipio` y `estado` ya se aplican en backend, por lo que
+ * no es necesario exponerlos aquí.
+ */
+export class JacListItemDto {
+  id!: number;
+  nombre!: string;
+  municipio!: string;
+  barrio!: string;
+  afiliados!: number;
+  organizativo!: EstadoOrganizativo;
+
+  static fromEntity(jac: JAC): JacListItemDto {
+    const dto = new JacListItemDto();
+    dto.id = jac.id;
+    dto.nombre = jac.nombreCompleto;
+    dto.municipio = jac.asocomunal?.municipioNombre ?? '';
+    dto.barrio = jac.nombreCorto ?? '';
+    dto.afiliados = jac.personas?.length ?? 0;
+    dto.organizativo = jac.estado === 'activa' ? 'Activa' : jac.estado === 'inactiva' ? 'Inactiva' : 'Cancelada';
+    return dto;
+  }
+
+  static fromEntities(jacs: JAC[]): JacListItemDto[] {
+    return jacs.map((jac) => JacListItemDto.fromEntity(jac));
+  }
+}
+
+/**
+ * Vista de detalle (`GET /jac/:id`) con miembros, tipo y reglas de negocio aplicadas.
+ */
 export class JacItemDto {
   id!: number;
   nombre!: string;
@@ -46,8 +80,9 @@ export class JacItemDto {
   afiliados!: number;
   documental!: EstadoDocumental;
   organizativo!: EstadoOrganizativo;
-  aprobacion!: EstadoAprobacion;
   tipo!: TipoJac;
+  /** Número de RUC tal como está en BD; `null` cuando la JAC no lo tiene registrado. */
+  numeroRuc!: string | null;
   /**
    * Mínimo legal de afiliados para sostener la JAC activa según su tipo.
    */
@@ -65,10 +100,10 @@ export class JacItemDto {
     dto.nombre = jac.nombreCompleto;
     dto.municipio = jac.asocomunal?.municipioNombre ?? '';
     dto.barrio = jac.nombreCorto ?? '';
-    dto.documental = jac.numeroRUC ? 'Vigente' : 'Vencida';
+    dto.numeroRuc = jac.numeroRUC && jac.numeroRUC.trim() !== '' ? jac.numeroRUC : null;
+    dto.documental = dto.numeroRuc ? 'Vigente' : 'Vencida';
     dto.organizativo = jac.estado === 'activa' ? 'Activa' : jac.estado === 'inactiva' ? 'Inactiva' : 'Cancelada';
-    dto.aprobacion = 'Rechazado';
-    dto.miembros = (jac.personas ?? []).map(AfiliadoItemDto.fromEntity);
+    dto.miembros = (jac.personas ?? []).map((persona) => AfiliadoItemDto.fromEntity(persona));
     dto.afiliados = dto.miembros.length;
 
     const esVereda = jac.tipo === TipoJAC.VEREDA;
@@ -80,6 +115,6 @@ export class JacItemDto {
   }
 
   static fromEntities(jacs: JAC[]): JacItemDto[] {
-    return jacs.map(JacItemDto.fromEntity);
+    return jacs.map((jac) => JacItemDto.fromEntity(jac));
   }
 }

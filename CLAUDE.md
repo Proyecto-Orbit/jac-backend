@@ -102,9 +102,9 @@ Todos requieren cookie con JWT firmado por `JWT_SECRET` y rol `admin` (decorator
 
 ### `JacController` (`/jac`)
 - `POST /jac` — crear JAC; emite `jac.events` con `action='created'`.
-- `GET /jac?limite=N` — lista JACs activas (default `limite=100`); incluye `asocomunal`, `personas`, `personas.cargo`.
-- `GET /jac/buscar?nombre=&municipio=&estado=&limite=` — búsqueda con QueryBuilder (LIKE case-insensitive). `estado` opcional retorna todos.
-- `GET /jac/:id` — busca con `relations: ['asocomunal', 'personas', 'personas.cargo']`. **Nota:** actualmente NO filtra por estado (devuelve también inactivas / canceladas), pese a que el comentario en el servicio dice lo contrario.
+- `GET /jac?limite=N` — lista JACs activas (default `limite=100`); retorna `JacListItemDto[]` (vista ligera: `id`, `nombre`, `municipio`, `barrio`, `afiliados`).
+- `GET /jac/buscar?nombre=&municipio=&estado=&documental=&limite=` — búsqueda con QueryBuilder (LIKE case-insensitive); `documental` se filtra por presencia/ausencia de `numero_ruc`. Retorna `JacListItemDto[]`.
+- `GET /jac/:id` — busca con `relations: ['asocomunal', 'personas', 'personas.cargo']`; retorna `JacItemDto` completo (incluye `tipo`, `numeroRuc`, `enRiesgo`, `minimoAfiliados`, `miembros`). **Nota:** actualmente NO filtra por estado (devuelve también inactivas / canceladas), pese a que el comentario en el servicio dice lo contrario.
 - `PATCH /jac/:id` — actualiza; emite `jac.events` con `action='updated'`.
 - `DELETE /jac/:id` — eliminación lógica (`estado → INACTIVA`); emite `jac.events` con `action='deleted'`.
 
