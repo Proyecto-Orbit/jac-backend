@@ -82,7 +82,7 @@ export class JacItemDto {
   estado!: EstadoOrganizativo;
   tipo!: TipoJac;
   /** Número de RUC tal como está en BD; `null` cuando la JAC no lo tiene registrado. */
-  numeroRuc!: string | null;
+  numeroRUC!: string | null;
   /**
    * Mínimo legal de afiliados para sostener la JAC activa según su tipo.
    */
@@ -93,7 +93,6 @@ export class JacItemDto {
    */
   enRiesgo!: boolean;
   miembros!: AfiliadoItemDto[];
-  numeroRUC!: string | null;
 
   static fromEntity(jac: JAC): JacItemDto {
     const dto = new JacItemDto();
@@ -101,12 +100,11 @@ export class JacItemDto {
     dto.nombre = jac.nombreCompleto;
     dto.municipio = jac.asocomunal?.municipioNombre ?? '';
     dto.barrio = jac.nombreCorto ?? '';
-    dto.numeroRuc = jac.numeroRUC && jac.numeroRUC.trim() !== '' ? jac.numeroRUC : null;
-    dto.documental = dto.numeroRuc ? 'Vigente' : 'Vencida';
+    dto.numeroRUC = jac.numeroRUC && jac.numeroRUC.trim() !== '' ? jac.numeroRUC : null;
+    dto.documental = dto.numeroRUC ? 'Vigente' : 'Vencida';
     dto.estado = jac.estado === 'activa' ? 'Activa' : jac.estado === 'inactiva' ? 'Inactiva' : 'Cancelada';
     dto.miembros = (jac.personas ?? []).map((persona) => AfiliadoItemDto.fromEntity(persona));
     dto.afiliados = dto.miembros.length;
-    dto.numeroRUC = jac.numeroRUC;
 
     const esVereda = jac.tipo === TipoJAC.VEREDA;
     dto.tipo = esVereda ? 'Vereda' : 'Barrio';

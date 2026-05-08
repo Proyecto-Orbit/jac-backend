@@ -151,7 +151,7 @@ export class JacService {
    * @returns La JAC actualizada como {@link JACResponseDto}.
    * @throws {NotFoundException} Si la JAC no existe.
    */
-  async update(id: number, updateJACDto: UpdateJACDto): Promise<JACResponseDto> {
+  async update(id: number, updateJACDto: UpdateJACDto): Promise<JacItemDto> {
     const jac = await this.jacRepository.findOne({ where: { id } });
 
     if (!jac) {
@@ -159,15 +159,21 @@ export class JacService {
     }
 
     Object.assign(jac, updateJACDto);
-    const updated = await this.jacRepository.save(jac);
+    await this.jacRepository.save(jac);
 
     await this.rabbitMQService.notifyJACUpdated({
-      id: updated.id,
-      nombre: updated.nombreCompleto,
-      asocomunalId: updated.asocomunalId,
+      id: jac.id,
+      nombre: jac.nombreCompleto,
+      asocomunalId: jac.asocomunalId,
     });
 
-    return JACResponseDto.fromEntity(updated);
+    // Recargar con relaciones para devolver el mismo formato que findOne()
+    const updated = await this.jacRepository.findOne({
+      where: { id },
+      relations: ['asocomunal', 'personas', 'personas.cargo'],
+    });
+
+    return JacItemDto.fromEntity(updated!);
   }
 
   /**
