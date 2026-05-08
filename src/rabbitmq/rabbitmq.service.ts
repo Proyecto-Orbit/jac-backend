@@ -61,11 +61,11 @@ export class RabbitMQService implements OnModuleInit {
   /**
    * Notificar creación de JAC
    */
-  async notifyJACCreated(jacData: { id: number; nombre: string; asocomunalId: number | null }): Promise<void> {
+  async notifyJACCreated(jacData: { id: number; nombre: string; estado: string; asocomunalId: number | null }): Promise<void> {
     await this.publishEvent({
       id: jacData.id,
       nombre: jacData.nombre,
-      estado: true,
+      estado: jacData.estado === 'activa',
       asocomunalId: jacData.asocomunalId,
       action: 'created',
       timestamp: new Date(),
@@ -75,11 +75,11 @@ export class RabbitMQService implements OnModuleInit {
   /**
    * Notificar actualización de JAC
    */
-  async notifyJACUpdated(jacData: { id: number; nombre: string; asocomunalId: number | null }): Promise<void> {
+  async notifyJACUpdated(jacData: { id: number; nombre: string; estado: string; asocomunalId: number | null }): Promise<void> {
     await this.publishEvent({
       id: jacData.id,
       nombre: jacData.nombre,
-      estado: true,
+      estado: jacData.estado === 'activa',
       asocomunalId: jacData.asocomunalId,
       action: 'updated',
       timestamp: new Date(),
