@@ -48,6 +48,7 @@ export class JacService {
     await this.rabbitMQService.notifyJACCreated({
       id: saved.id,
       nombre: saved.nombreCompleto,
+      estado: saved.estado,
       asocomunalId: saved.asocomunalId,
     });
 
@@ -164,6 +165,7 @@ export class JacService {
     await this.rabbitMQService.notifyJACUpdated({
       id: jac.id,
       nombre: jac.nombreCompleto,
+      estado: jac.estado,
       asocomunalId: jac.asocomunalId,
     });
 
