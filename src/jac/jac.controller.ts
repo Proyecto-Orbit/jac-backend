@@ -31,7 +31,7 @@ import { Role } from '../auth/role.enum';
  */
 @Controller('jac')
 export class JacController {
-  constructor(private readonly jacService: JacService) {}
+  constructor(private readonly jacService: JacService) { }
 
   /**
    * `POST /jac`
@@ -109,7 +109,7 @@ export class JacController {
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateJACDto: UpdateJACDto,
-  ): Promise<JACResponseDto> {
+  ): Promise<JacItemDto> {
     return this.jacService.update(id, updateJACDto);
   }
 

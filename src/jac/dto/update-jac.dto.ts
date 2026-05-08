@@ -8,7 +8,8 @@
  */
 import { PartialType } from '@nestjs/mapped-types';
 import { CreateJACDto } from './create-jac.dto';
-import { IsOptional, IsString, IsNumber } from 'class-validator';
+import { IsEnum, IsOptional, IsString, IsNumber } from 'class-validator';
+import { EstadoJAC } from '../entities/jac.entity';
 
 export class UpdateJACDto extends PartialType(CreateJACDto) {
   @IsOptional()
@@ -18,4 +19,12 @@ export class UpdateJACDto extends PartialType(CreateJACDto) {
   @IsOptional()
   @IsNumber()
   asocomunalId?: number;
-}
+
+  /**
+   * Nuevo estado de la JAC.
+   * Solo se puede cambiar mediante actualización explícita (no en creación).
+   */
+  @IsOptional()
+  @IsEnum(EstadoJAC, { message: 'El estado debe ser: activa, inactiva o cancelada' })
+  estado?: EstadoJAC;
+}
