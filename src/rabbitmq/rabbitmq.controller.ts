@@ -4,6 +4,7 @@ import {
   AsocomunalService,
   AsocomunalEventPayload,
 } from '../asocomunal/asocomunal.service';
+import { JacService } from '../jac/jac.service';
 
 /**
  * Payload de un evento de Asocomunal recibido por RabbitMQ.
@@ -14,22 +15,6 @@ import {
  */
 interface AsocomunalEventDto extends AsocomunalEventPayload {
   /** Tipo de operación que originó el evento. */
-  action: 'created' | 'updated' | 'deleted';
-}
-
-/**
- * Payload de una confirmación de evento JAC recibido por RabbitMQ.
- */
-interface JACEventDto {
-  /** Identificador de la JAC. */
-  id: number;
-  /** Nombre de la JAC. */
-  nombre: string;
-  /** Estado actual de la JAC. */
-  estado: boolean;
-  /** ID de la Asocomunal vinculada, si existe. */
-  asocomunalId: number | null;
-  /** Tipo de operación confirmada. */
   action: 'created' | 'updated' | 'deleted';
 }
 
@@ -47,7 +32,10 @@ interface JACEventDto {
 export class RabbitMQController {
   private readonly logger = new Logger(RabbitMQController.name);
 
-  constructor(private readonly asocomunalService: AsocomunalService) {}
+  constructor(
+    private readonly asocomunalService: AsocomunalService,
+    private readonly jacService: JacService,
+  ) {}
 
   /**
    * Consume el patrón `asocomunal.event` de la cola RabbitMQ.
@@ -94,34 +82,39 @@ export class RabbitMQController {
     }
   }
 
-  /**
-   * Consume el patrón `jac.event` para registrar confirmaciones de JAC.
-   *
-   * @remarks
-   * Actualmente solo registra el evento en el log. Puede extenderse para
-   * sincronizar estado adicional si fuera necesario.
-   *
-   * @param data - Payload de confirmación publicado por el microservicio.
-   */
-  @EventPattern('jac.event')
-  async handleJACEvent(@Payload() data: JACEventDto): Promise<void> {
-    this.logger.log(`Confirmación JAC recibida: action=${data.action}, id=${data.id}`);
+  @EventPattern('solicitud.aprobada.jac')
+  async handleSolicitudAprobadaJac(@Payload() data: any): Promise<void> {
+    this.logger.log(`Solicitud de JAC aprobada recibida: acción=${data.tipoAccion}`);
 
     try {
-      switch (data.action) {
-        case 'created':
-          this.logger.log(`JAC creada confirmada: "${data.nombre}" (id=${data.id})`);
+      const { tipoAccion, datos, entidadId } = data;
+
+      switch (tipoAccion) {
+        case 'CREAR':
+          await this.jacService.create(datos);
+          this.logger.log(`Nueva JAC creada tras aprobación: "${datos.nombreCompleto}"`);
           break;
-        case 'updated':
-          this.logger.log(`JAC actualizada confirmada: "${data.nombre}" (id=${data.id})`);
+
+        case 'EDITAR':
+          if (entidadId) {
+            await this.jacService.update(Number(entidadId), datos);
+            this.logger.log(`JAC id=${entidadId} actualizada tras aprobación`);
+          }
           break;
-        case 'deleted':
-          this.logger.log(`JAC eliminada (lógico) confirmada: id=${data.id}`);
+
+        case 'ELIMINAR':
+          if (entidadId) {
+            await this.jacService.remove(Number(entidadId));
+            this.logger.log(`JAC id=${entidadId} eliminada tras aprobación`);
+          }
           break;
+
+        default:
+          this.logger.warn(`Tipo de acción de solicitud desconocida: ${tipoAccion}`);
       }
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : 'Error desconocido';
-      this.logger.error(`Error procesando confirmación JAC id=${data.id}: ${msg}`);
+      this.logger.error(`Error aplicando solicitud aprobada de JAC: ${msg}`);
     }
   }
 }

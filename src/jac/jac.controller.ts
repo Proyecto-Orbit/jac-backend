@@ -55,7 +55,7 @@ export class JacController {
    *
    * @returns Array de JACs activas.
    */
-  @Auth(Role.ADMIN)
+  @Auth(Role.ADMIN, Role.OPERADOR)
   @Get()
   findAll(
     @Query('limite', new DefaultValuePipe(100), ParseIntPipe) limite: number,
@@ -75,7 +75,7 @@ export class JacController {
    * GET /jac/buscar?nombre=el+pino&estado=activa
    * GET /jac/buscar?municipio=bogot%C3%A1
    */
-  @Auth(Role.ADMIN)
+  @Auth(Role.ADMIN, Role.OPERADOR)
   @Get('buscar')
   search(@Query() filters: SearchJACDto): Promise<JacListItemDto[]> {
     return this.jacService.search(filters);
@@ -89,7 +89,7 @@ export class JacController {
    * @param id - ID de la JAC (entero positivo).
    * @returns La JAC encontrada con datos de su Asocomunal.
    */
-  @Auth(Role.ADMIN)
+  @Auth(Role.ADMIN, Role.OPERADOR)
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number): Promise<JacItemDto> {
     return this.jacService.findOne(id);

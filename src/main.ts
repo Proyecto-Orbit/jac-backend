@@ -7,13 +7,27 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   /**
-   * Esto es lo que permite consumir eventos
+   * Cola para recibir eventos de sincronización de Asocomunales (MS1)
    */
   app.connectMicroservice({
     transport: Transport.RMQ,
     options: {
       urls: [process.env.RABBITMQ_URL || 'amqp://localhost:5672'],
       queue: 'colaAsocomunales',
+      queueOptions: {
+        durable: true,
+      },
+    },
+  });
+
+  /**
+   * Cola para recibir aprobaciones de JAC desde el MS de Auditoría
+   */
+  app.connectMicroservice({
+    transport: Transport.RMQ,
+    options: {
+      urls: [process.env.RABBITMQ_URL || 'amqp://localhost:5672'],
+      queue: 'colaAprobacionesJAC',
       queueOptions: {
         durable: true,
       },
