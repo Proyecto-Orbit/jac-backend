@@ -134,6 +134,7 @@ describe('JacService.create', () => {
     expect(rabbitMQService.notifyJACCreated).toHaveBeenCalledWith({
       id: 55,
       nombre: 'JAC Barrio Centro',
+      estado: EstadoJAC.INACTIVA,
       asocomunalId: 3,
     });
   });
