@@ -31,11 +31,11 @@ export class JACResponseDto {
   asocomunalId!: number | null;
 
   /**
-   * Estado actual de la JAC.
+   * Estado actual de la JAC: 'activa', 'inactiva', 'cancelada'.
    *
    * @see {@link EstadoJAC}
    */
-  estado!: EstadoJAC;
+  estado!: string;
 
   /** Nombre abreviado de la JAC. */
   nombreCorto!: string | null;
