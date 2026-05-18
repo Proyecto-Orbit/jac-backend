@@ -15,7 +15,7 @@ import { CreateJACDto } from './dto/create-jac.dto';
 import { UpdateJACDto } from './dto/update-jac.dto';
 import { SearchJACDto } from './dto/search-jac.dto';
 import { JACResponseDto } from './dto/jac-response.dto';
-import { JacItemDto, JacListItemDto } from './dto/jac-item.dto';
+import { JacItemDto, JacListItemDto, JacPublicItemDto } from './dto/jac-item.dto';
 import { Auth } from '../auth/auth.decorator';
 import { Role } from '../auth/role.enum';
 
@@ -45,6 +45,57 @@ export class JacController {
   @Post()
   create(@Body() createJACDto: CreateJACDto): Promise<JACResponseDto> {
     return this.jacService.create(createJACDto);
+  }
+
+  /**
+   * `GET /jac/public/stats`
+   *
+   * Retorna estadísticas consolidadas públicas y anónimas de JACs.
+   * Este endpoint es público y accesible por usuarios invitados.
+   */
+  @Get('public/stats')
+async getPublicStats() {
+  const stats = await this.jacService.getPublicStats();
+
+  console.log(
+    '📊 Public Stats Response:',
+    JSON.stringify(stats, null, 2)
+  );
+
+  return stats;
+}
+  /**
+   * `GET /jac/public/buscar`
+   *
+   * Búsqueda de JACs con datos públicos (sin PII).
+   */
+  @Get('public/buscar')
+  searchPublic(@Query() filters: SearchJACDto): Promise<JacListItemDto[]> {
+    return this.jacService.searchPublic(filters);
+  }
+
+  /**
+   * `GET /jac/public`
+   *
+   * Lista JACs activas con datos públicos (sin PII).
+   */
+  @Get('public')
+  findAllPublic(
+    @Query('limite', new DefaultValuePipe(100), ParseIntPipe) limite: number,
+  ): Promise<JacListItemDto[]> {
+    return this.jacService.findAllPublic(limite);
+  }
+
+  /**
+   * `GET /jac/public/:id`
+   *
+   * Detalle de una JAC sin miembros ni RUC.
+   */
+  @Get('public/:id')
+  findOnePublic(
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<JacPublicItemDto> {
+    return this.jacService.findOnePublic(id);
   }
 
   /**

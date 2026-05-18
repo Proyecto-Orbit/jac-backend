@@ -118,3 +118,42 @@ export class JacItemDto {
     return jacs.map((jac) => JacItemDto.fromEntity(jac));
   }
 }
+
+/**
+ * Vista de detalle pública (`GET /jac/public/:id`).
+ * Sin miembros, documentos, teléfonos ni número de RUC.
+ */
+export class JacPublicItemDto {
+  id!: number;
+  nombre!: string;
+  municipio!: string;
+  barrio!: string;
+  afiliados!: number;
+  estado!: EstadoOrganizativo;
+  tipo!: TipoJac;
+  minimoAfiliados!: number;
+  enRiesgo!: boolean;
+
+  static fromEntity(jac: JAC): JacPublicItemDto {
+    const dto = new JacPublicItemDto();
+    dto.id = jac.id;
+    dto.nombre = jac.nombreCompleto;
+    dto.municipio = jac.asocomunal?.municipioNombre ?? '';
+    dto.barrio = jac.nombreCorto ?? '';
+    dto.estado =
+      jac.estado === 'activa'
+        ? 'Activa'
+        : jac.estado === 'inactiva'
+          ? 'Inactiva'
+          : 'Cancelada';
+    dto.afiliados = jac.personas?.length ?? 0;
+
+    const esVereda = jac.tipo === TipoJAC.VEREDA;
+    dto.tipo = esVereda ? 'Vereda' : 'Barrio';
+    dto.minimoAfiliados = esVereda ? MINIMO_AFILIADOS_VEREDA : MINIMO_AFILIADOS_BARRIO;
+    dto.enRiesgo =
+      jac.estado === EstadoJAC.ACTIVA && dto.afiliados < dto.minimoAfiliados;
+
+    return dto;
+  }
+}

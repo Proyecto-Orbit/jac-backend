@@ -1,13 +1,14 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { EstadoJAC, JAC } from './entities/jac.entity';
+import { EstadoJAC, JAC, TipoJAC } from './entities/jac.entity';
 import { CreateJACDto } from './dto/create-jac.dto';
 import { UpdateJACDto } from './dto/update-jac.dto';
 import { JACResponseDto } from './dto/jac-response.dto';
-import { JacItemDto, JacListItemDto } from './dto/jac-item.dto';
+import { JacItemDto, JacListItemDto, JacPublicItemDto } from './dto/jac-item.dto';
 import { SearchJACDto } from './dto/search-jac.dto';
 import { RabbitMQService } from '../rabbitmq/rabbitmq.service';
+import { AsocomunalService } from '../asocomunal/asocomunal.service';
 
 /**
  * Servicio de negocio para la gestión de JACs.
@@ -25,6 +26,7 @@ export class JacService {
     @InjectRepository(JAC)
     private readonly jacRepository: Repository<JAC>,
     private readonly rabbitMQService: RabbitMQService,
+    private readonly asocomunalService: AsocomunalService,
   ) {}
 
   /**
@@ -201,5 +203,87 @@ export class JacService {
 
     this.logger.log(`JAC id=${id} desactivada`);
     return { message: `JAC "${jac.nombreCompleto}" desactivada correctamente` };
+  }
+
+  /**
+   * Obtiene estadísticas agregadas y anónimas públicas para el Dashboard.
+   *
+   * @returns Un objeto con métricas consolidadas seguras.
+   */
+  async findAllPublic(limite: number = 100): Promise<JacListItemDto[]> {
+    return this.findAll(limite);
+  }
+
+  async searchPublic(filters: SearchJACDto): Promise<JacListItemDto[]> {
+    return this.search(filters);
+  }
+
+  async findOnePublic(id: number): Promise<JacPublicItemDto> {
+    const jac = await this.jacRepository.findOne({
+      where: { id },
+      relations: ['asocomunal', 'personas'],
+    });
+
+    if (!jac) {
+      throw new NotFoundException(`JAC con ID ${id} no encontrada`);
+    }
+
+    return JacPublicItemDto.fromEntity(jac);
+  }
+
+  async getPublicStats() {
+    const activeJacsCount = await this.jacRepository.count({
+      where: { estado: EstadoJAC.ACTIVA },
+    });
+
+    const totalJACS = await this.jacRepository.count();
+
+    const rucCountResult = await this.jacRepository
+      .createQueryBuilder('jac')
+      .where('jac.estado = :estado', { estado: EstadoJAC.ACTIVA })
+      .andWhere("jac.numero_ruc IS NOT NULL AND jac.numero_ruc <> ''")
+      .getCount();
+
+    const jacs = await this.jacRepository.find({
+      where: { estado: EstadoJAC.ACTIVA },
+      select: ['id', 'nombreCorto', 'tipo'],
+    });
+    console.log(
+  jacs.slice(0, 20).map(j => ({
+    nombre: j.nombreCorto,
+    tipo: j.tipo,
+    tipoReal: typeof j.tipo
+  }))
+);
+
+    const urbanCount = jacs.filter(jac => jac.tipo === TipoJAC.BARRIO).length;
+    const ruralCount = jacs.filter(jac => jac.tipo === TipoJAC.VEREDA).length;
+
+    const asocomunales = await this.asocomunalService.findAll();
+    const totalAsocomunales = asocomunales.length;
+
+    const topMunicipios = await this.jacRepository
+      .createQueryBuilder('jac')
+      .innerJoin('jac.asocomunal', 'asocomunal')
+      .select('asocomunal.municipio_nombre', 'municipio')
+      .addSelect('COUNT(jac.id)', 'count')
+      .where('jac.estado = :estado', { estado: EstadoJAC.ACTIVA })
+      .groupBy('asocomunal.municipio_nombre')
+      .orderBy('count', 'DESC')
+      .limit(5)
+      .getRawMany();
+
+    return {
+      activeJacsCount,
+      totalJACS,
+      rucCount: rucCountResult,
+      urbanCount,
+      ruralCount,
+      totalAsocomunales,
+      topMunicipios: topMunicipios.map((item) => ({
+        municipio: item.municipio || 'Otros',
+        count: parseInt(item.count, 10),
+      })),
+    };
   }
 }
