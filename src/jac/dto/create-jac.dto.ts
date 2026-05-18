@@ -51,7 +51,9 @@ export class CreateJACDto {
    */
   @IsOptional()
   @IsString()
-  @MaxLength(100, { message: 'El nombre corto no puede superar 100 caracteres' })
+  @MaxLength(100, {
+    message: 'El nombre corto no puede superar 100 caracteres'
+  })
   nombreCorto?: string;
 
   /**
