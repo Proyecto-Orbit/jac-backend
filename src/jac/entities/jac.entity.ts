@@ -67,11 +67,11 @@ export class JAC {
    * @see {@link EstadoJAC}
    */
   @Column({
-    type: 'enum',
-    enum: EstadoJAC,
+    type: 'varchar',
+    length: 50,
     default: EstadoJAC.ACTIVA,
   })
-  estado!: EstadoJAC;
+  estado!: string;
 
   /**
    * Tipo de territorio que cubre la JAC (barrio urbano o vereda rural).
@@ -84,11 +84,11 @@ export class JAC {
    * @see {@link TipoJAC}
    */
   @Column({
-    type: 'enum',
-    enum: TipoJAC,
+    type: 'varchar',
+    length: 50,
     default: TipoJAC.BARRIO,
   })
-  tipo!: TipoJAC;
+  tipo!: string;
 
   /**
    * Nombre abreviado o coloquial de la JAC (opcional).

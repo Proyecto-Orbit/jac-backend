@@ -50,7 +50,7 @@ export class JacService {
     await this.rabbitMQService.notifyJACCreated({
       id: saved.id,
       nombre: saved.nombreCompleto,
-      estado: saved.estado,
+      estado: String(saved.estado),
       asocomunalId: saved.asocomunalId,
     });
 
@@ -167,7 +167,7 @@ export class JacService {
     await this.rabbitMQService.notifyJACUpdated({
       id: jac.id,
       nombre: jac.nombreCompleto,
-      estado: jac.estado,
+      estado: String(jac.estado),
       asocomunalId: jac.asocomunalId,
     });
 
@@ -199,6 +199,7 @@ export class JacService {
 
     jac.estado = EstadoJAC.INACTIVA;
     await this.jacRepository.save(jac);
+    // Nota: notifyJACDeleted no necesita estado, ya que siempre es 'inactiva'
     await this.rabbitMQService.notifyJACDeleted(jac.id);
 
     this.logger.log(`JAC id=${id} desactivada`);

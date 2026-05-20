@@ -21,7 +21,7 @@ import { lastValueFrom } from 'rxjs';
 export interface JACEventDto {
   id: number;                    // ID de la JAC (number, no UUID)
   nombre: string;                // nombreCompletoJunta
-  estado: boolean;               // ACTIVA === 'SI'
+  estado: string;                // 'activa', 'inactiva', 'cancelada'
   asocomunalId: number | null;   // FK a Asocomunal
   action: 'created' | 'updated' | 'deleted';
   timestamp: Date;
@@ -61,11 +61,12 @@ export class RabbitMQService implements OnModuleInit {
   /**
    * Notificar creación de JAC
    */
+  //antes estaban quemados los estados a true, ahora se pasa como parametro
   async notifyJACCreated(jacData: { id: number; nombre: string; estado: string; asocomunalId: number | null }): Promise<void> {
     await this.publishEvent({
       id: jacData.id,
       nombre: jacData.nombre,
-      estado: jacData.estado === 'activa',
+      estado: jacData.estado,
       asocomunalId: jacData.asocomunalId,
       action: 'created',
       timestamp: new Date(),
@@ -79,7 +80,7 @@ export class RabbitMQService implements OnModuleInit {
     await this.publishEvent({
       id: jacData.id,
       nombre: jacData.nombre,
-      estado: jacData.estado === 'activa',
+      estado: jacData.estado,
       asocomunalId: jacData.asocomunalId,
       action: 'updated',
       timestamp: new Date(),
@@ -93,7 +94,7 @@ export class RabbitMQService implements OnModuleInit {
     await this.publishEvent({
       id: jacId,
       nombre: '',
-      estado: false,
+      estado: 'inactiva',
       asocomunalId: null,
       action: 'deleted',
       timestamp: new Date(),

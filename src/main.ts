@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core';
+import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { Transport } from '@nestjs/microservices';
 import cookieParser from 'cookie-parser';
@@ -34,6 +35,15 @@ async function bootstrap() {
     },
   });
 
+  // Validación global de DTOs con class-validator
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true, // elimina propiedades no declaradas en el DTO
+      forbidNonWhitelisted: true, // lanza 400 si llegan propiedades no permitidas
+      transform: true, // convierte tipos automáticamente (ej. @Type(() => Number))
+    }),
+  );
+
   // Habilitar lectura de cookies (necesario para el guard JWT)
   app.use(cookieParser());
 
@@ -43,11 +53,12 @@ async function bootstrap() {
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
   });
-  await app.startAllMicroservices(); 
+  await app.startAllMicroservices();
   await app.listen(process.env.PORT || 3001);
 }
 bootstrap().catch((error: unknown) => {
-  const errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
+  const errorMessage =
+    error instanceof Error ? error.message : JSON.stringify(error);
   console.error('Error durante el arranque de la aplicación:', errorMessage);
   process.exit(1);
 });
