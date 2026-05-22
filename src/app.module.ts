@@ -15,6 +15,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { JacModule } from './jac/jac.module';
 import { RabbitMQModule } from './rabbitmq/rabbitmq.module';
 import { RolesGuard } from './auth/roles.guard';
+import { KeycloakKeyService } from './auth/keycloak-key.service';
 import { AfiliadosModule } from './afiliados/afiliados.module';
 import { AsocomunalModule } from './asocomunal/asocomunal.module';
 
@@ -25,7 +26,7 @@ import { AsocomunalModule } from './asocomunal/asocomunal.module';
       isGlobal: true,              // Disponible en toda la app
       envFilePath: '.env',         // Archivo de configuración
     }),
-    
+
     // TypeOrmModule: Conexión a PostgreSQL
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
@@ -43,7 +44,7 @@ import { AsocomunalModule } from './asocomunal/asocomunal.module';
       }),
       inject: [ConfigService],
     }),
-    
+
     // JwtModule: Disponible globalmente para el guard de autenticación
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -61,7 +62,8 @@ import { AsocomunalModule } from './asocomunal/asocomunal.module';
     RabbitMQModule,
   ],
   providers: [
+    KeycloakKeyService,
     { provide: APP_GUARD, useClass: RolesGuard },
   ],
 })
-export class AppModule {}
+export class AppModule { }
