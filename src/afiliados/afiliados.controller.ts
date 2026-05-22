@@ -14,6 +14,7 @@ import { UpdatePersonaDto } from './dto/update-persona.dto';
 import { AssignCargoDto } from './dto/assign-cargo.dto';
 import { PersonaResponseDto } from './dto/persona-response.dto';
 import { PersonaCargo } from './entities/persona-cargo.entity';
+import { Cargo } from './entities/cargo.entity';
 import { Auth } from '../auth/auth.decorator';
 import { Role } from '../auth/role.enum';
 
@@ -31,6 +32,12 @@ export class AfiliadosController {
   @Get()
   findAll(): Promise<PersonaResponseDto[]> {
     return this.afiliadosService.findAll();
+  }
+
+  @Auth(Role.ADMIN)
+  @Get('catalogo/cargos')
+  findAllCargos(): Promise<Cargo[]> {
+    return this.afiliadosService.findAllCargos();
   }
 
   @Auth(Role.ADMIN)
