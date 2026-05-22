@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Persona } from './entities/persona.entity';
 import { PersonaCargo } from './entities/persona-cargo.entity';
+import { Cargo } from './entities/cargo.entity';
 import { CreatePersonaDto } from './dto/create-persona.dto';
 import { UpdatePersonaDto } from './dto/update-persona.dto';
 import { AssignCargoDto } from './dto/assign-cargo.dto';
@@ -15,23 +16,34 @@ export class AfiliadosService {
     private readonly personaRepository: Repository<Persona>,
     @InjectRepository(PersonaCargo)
     private readonly personaCargoRepository: Repository<PersonaCargo>,
+    @InjectRepository(Cargo)
+    private readonly cargoRepository: Repository<Cargo>,
   ) {}
 
   async create(createPersonaDto: CreatePersonaDto): Promise<PersonaResponseDto> {
     const persona = this.personaRepository.create(createPersonaDto);
     const saved = await this.personaRepository.save(persona);
-    return PersonaResponseDto.fromEntity(saved);
+    // Cargar relación cargo después de guardar
+    const personaWithCargo = await this.personaRepository.findOne({
+      where: { id: saved.id },
+      relations: ['cargo'],
+    });
+    return PersonaResponseDto.fromEntity(personaWithCargo!);
   }
 
   async findAll(): Promise<PersonaResponseDto[]> {
     const personas = await this.personaRepository.find({
+      relations: ['cargo'],
       order: { apellido: 'ASC', nombre: 'ASC' },
     });
     return PersonaResponseDto.fromEntities(personas);
   }
 
   async findOne(id: number): Promise<PersonaResponseDto> {
-    const persona = await this.personaRepository.findOne({ where: { id } });
+    const persona = await this.personaRepository.findOne({
+      where: { id },
+      relations: ['cargo'],
+    });
 
     if (!persona) {
       throw new NotFoundException(`Afiliado con ID ${id} no encontrado`);
@@ -41,7 +53,10 @@ export class AfiliadosService {
   }
 
   async update(id: number, updatePersonaDto: UpdatePersonaDto): Promise<PersonaResponseDto> {
-    const persona = await this.personaRepository.findOne({ where: { id } });
+    const persona = await this.personaRepository.findOne({
+      where: { id },
+      relations: ['cargo'],
+    });
 
     if (!persona) {
       throw new NotFoundException(`Afiliado con ID ${id} no encontrado`);
@@ -49,7 +64,12 @@ export class AfiliadosService {
 
     Object.assign(persona, updatePersonaDto);
     const updated = await this.personaRepository.save(persona);
-    return PersonaResponseDto.fromEntity(updated);
+    // Recargar para obtener relación actualizada
+    const personaWithCargo = await this.personaRepository.findOne({
+      where: { id: updated.id },
+      relations: ['cargo'],
+    });
+    return PersonaResponseDto.fromEntity(personaWithCargo!);
   }
 
   async remove(id: number): Promise<{ message: string }> {
@@ -92,6 +112,12 @@ export class AfiliadosService {
       where: { personaId: id },
       relations: ['cargo'],
       order: { fechaInicio: 'DESC' },
+    });
+  }
+
+  async findAllCargos(): Promise<Cargo[]> {
+    return this.cargoRepository.find({
+      order: { nombre: 'ASC' },
     });
   }
 }
