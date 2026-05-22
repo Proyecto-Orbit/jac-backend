@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { RabbitMQController } from './rabbitmq.controller';
 import { AsocomunalService } from '../asocomunal/asocomunal.service';
+import { JacService } from '../jac/jac.service';
 
 describe('RabbitMQController', () => {
   let controller: RabbitMQController;
@@ -11,6 +12,12 @@ describe('RabbitMQController', () => {
     remove: jest.fn(),
   };
 
+  const mockJacService = {
+    create: jest.fn(),
+    update: jest.fn(),
+    remove: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [RabbitMQController],
@@ -18,6 +25,10 @@ describe('RabbitMQController', () => {
         {
           provide: AsocomunalService,
           useValue: mockAsocomunalService,
+        },
+        {
+          provide: JacService,
+          useValue: mockJacService,
         },
       ],
     }).compile();
