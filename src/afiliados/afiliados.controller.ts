@@ -75,7 +75,10 @@ export class AfiliadosController {
         'El archivo debe tener extensión .xlsx',
       );
     }
-    return this.importarAfiliadosService.importarExcel(archivo.buffer, body.jacId);
+    return this.importarAfiliadosService.importarExcel(
+      archivo.buffer,
+      body.jacId,
+    );
   }
 
   @Auth(Role.ADMIN)

@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { JAC } from './entities/jac.entity';
+import { PersonaJAC } from '../afiliados/entities/persona-jac.entity';
+import { Persona } from '../afiliados/entities/persona.entity';
 import { JacService } from './jac.service';
 import { JacController } from './jac.controller';
 import { RabbitMQModule } from '../rabbitmq/rabbitmq.module';
@@ -21,7 +23,7 @@ import { AsocomunalModule } from '../asocomunal/asocomunal.module';
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([JAC]),
+    TypeOrmModule.forFeature([JAC, PersonaJAC, Persona]),
     RabbitMQModule,
     AsocomunalModule,
   ],
