@@ -13,6 +13,14 @@ export class PersonaResponseDto {
   telefono!: string | null;
   correo!: string | null;
   documento!: string | null; // Alias para cedula
+  genero!: string | null;
+  grupoEtnico!: string | null;
+  fechaNacimiento!: Date | null;
+  rangoEdad!: string | null;
+  ocupacion!: string | null;
+  direccion!: string | null;
+  estudiosRealizados!: string | null;
+  discapacitado!: boolean | null;
 
   static fromEntity(persona: Persona): PersonaResponseDto {
     return {
@@ -28,6 +36,14 @@ export class PersonaResponseDto {
       telefono: persona.telefono,
       correo: persona.correo,
       documento: persona.cedula || null, // Alias para que el frontend use documento
+      genero: persona.genero,
+      grupoEtnico: persona.grupoEtnico,
+      fechaNacimiento: persona.fechaNacimiento,
+      rangoEdad: persona.rangoEdad,
+      ocupacion: persona.ocupacion,
+      direccion: persona.direccion,
+      estudiosRealizados: persona.estudiosRealizados,
+      discapacitado: persona.discapacitado,
     };
   }
 

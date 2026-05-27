@@ -43,6 +43,30 @@ export class Persona {
   @Column({ type: 'varchar', length: 150, nullable: true })
   correo!: string | null;
 
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  genero!: string | null;
+
+  @Column({ type: 'varchar', length: 30, nullable: true, name: 'grupo_etnico' })
+  grupoEtnico!: string | null;
+
+  @Column({ type: 'date', nullable: true, name: 'fecha_nacimiento' })
+  fechaNacimiento!: Date | null;
+
+  @Column({ type: 'varchar', length: 30, nullable: true, name: 'rango_edad' })
+  rangoEdad!: string | null;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  ocupacion!: string | null;
+
+  @Column({ type: 'varchar', length: 200, nullable: true })
+  direccion!: string | null;
+
+  @Column({ type: 'varchar', length: 100, nullable: true, name: 'estudios_realizados' })
+  estudiosRealizados!: string | null;
+
+  @Column({ type: 'boolean', nullable: true })
+  discapacitado!: boolean | null;
+
   @Column({ type: 'boolean', default: true, nullable: false })
   activo!: boolean;
 

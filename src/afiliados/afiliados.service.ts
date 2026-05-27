@@ -51,12 +51,154 @@ export class AfiliadosService {
       }
     });
 
-    // Cargar relación cargo después de guardar para devolver la respuesta completa
     const personaWithCargo = await this.personaRepository.findOne({
       where: { id: saved.id },
       relations: ['cargo'],
     });
     return PersonaResponseDto.fromEntity(personaWithCargo!);
+  }
+
+  async createBulk(data: any[], jacId: number): Promise<any> {
+    const results = {
+      total: data.length,
+      creados: 0,
+      actualizados: 0,
+      errores: 0,
+      advertencias: 0,
+      detalles: [] as any[],
+      validas: 0
+    };
+
+    for (let i = 0; i < data.length; i++) {
+      const row = data[i];
+      try {
+        await this.personaRepository.manager.transaction(async (manager) => {
+          let persona: Persona | null = null;
+
+          if (row.cedula) {
+            persona = await manager.findOne(Persona, { where: { cedula: row.cedula } });
+          } else if (row.nombre && row.apellido) {
+            persona = await manager.findOne(Persona, { 
+              where: { nombre: row.nombre, apellido: row.apellido } 
+            });
+          }
+
+          if (persona) {
+            // Actualizar campos vacíos
+            const updateData: any = {};
+            const campos = ['genero', 'grupoEtnico', 'fechaNacimiento', 'rangoEdad', 'ocupacion', 'direccion', 'estudiosRealizados', 'discapacitado', 'correo', 'telefono', 'lugarExpedicionCedula'];
+            let hasUpdates = false;
+            for (const campo of campos) {
+              if (row[campo] !== undefined && row[campo] !== null && row[campo] !== '') {
+                if (!persona[campo as keyof Persona]) {
+                  updateData[campo] = row[campo];
+                  hasUpdates = true;
+                }
+              }
+            }
+
+            // Manejar Cargo
+            let cargoChanged = false;
+            if (row.cargoId && persona.cargoId !== row.cargoId) {
+                updateData.cargoId = row.cargoId;
+                hasUpdates = true;
+                cargoChanged = true;
+            }
+
+            // Manejar JAC
+            let jacChanged = false;
+            if (jacId && persona.jacId !== jacId) {
+                updateData.jacId = jacId;
+                hasUpdates = true;
+                jacChanged = true;
+            }
+
+            if (hasUpdates) {
+              await manager.update(Persona, { id: persona.id }, updateData);
+              results.actualizados++;
+              results.validas++;
+            } else {
+              results.advertencias++;
+              results.detalles.push({ fila: i + 2, asocomunal: `${row.nombre} ${row.apellido}`, error: 'Ya existe y no hay campos nuevos' });
+            }
+
+            const hoy = new Date();
+
+            if (cargoChanged) {
+              if (persona.cargoId) {
+                const activeCargoHistory = await manager.findOne(PersonaCargo, {
+                  where: { personaId: persona.id, cargoId: persona.cargoId },
+                  order: { fechaInicio: 'DESC' }
+                });
+                if (activeCargoHistory && !activeCargoHistory.fechaFin) {
+                  activeCargoHistory.fechaFin = hoy;
+                  activeCargoHistory.estadoId = 2;
+                  await manager.save(activeCargoHistory);
+                }
+              }
+              const newPersonaCargo = manager.create(PersonaCargo, {
+                personaId: persona.id,
+                cargoId: row.cargoId,
+                fechaInicio: hoy,
+                estadoId: 1,
+              });
+              await manager.save(newPersonaCargo);
+            }
+
+            if (jacChanged) {
+              if (persona.jacId) {
+                const activeJac = await manager.findOne(PersonaJAC, {
+                  where: { personaId: persona.id, jacId: persona.jacId },
+                  order: { fechaInicio: 'DESC' },
+                });
+                if (activeJac && !activeJac.fechaFin) {
+                  activeJac.fechaFin = hoy;
+                  await manager.save(activeJac);
+                }
+              }
+              const personaJac = manager.create(PersonaJAC, {
+                personaId: persona.id,
+                jacId: jacId,
+                fechaInicio: hoy,
+              });
+              await manager.save(personaJac);
+            }
+
+          } else {
+            // Crear nueva persona
+            const newPersonaData = { ...row, jacId };
+            const nuevaPersona = manager.create(Persona, newPersonaData);
+            const saved = await manager.save(nuevaPersona);
+
+            if (jacId) {
+              const personaJac = manager.create(PersonaJAC, {
+                personaId: saved.id,
+                jacId: jacId,
+                fechaInicio: new Date(),
+              });
+              await manager.save(personaJac);
+            }
+
+            if (saved.cargoId) {
+              const personaCargo = manager.create(PersonaCargo, {
+                personaId: saved.id,
+                cargoId: saved.cargoId,
+                fechaInicio: new Date(),
+                estadoId: 1,
+              });
+              await manager.save(personaCargo);
+            }
+            results.creados++;
+            results.validas++;
+          }
+        });
+      } catch (err: any) {
+        results.errores++;
+        results.detalles.push({ fila: i + 2, asocomunal: `${row.nombre || ''} ${row.apellido || ''}`, error: err.message });
+      }
+    }
+
+    return results;
   }
 
   async findAll(): Promise<PersonaResponseDto[]> {
