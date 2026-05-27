@@ -29,6 +29,15 @@ export class AfiliadosController {
   }
 
   @Auth(Role.ADMIN)
+  @Post('bulk')
+  createBulk(
+    @Body('data') data: any[],
+    @Body('jacId') jacId: number,
+  ): Promise<any> {
+    return this.afiliadosService.createBulk(data, jacId);
+  }
+
+  @Auth(Role.ADMIN)
   @Get()
   findAll(): Promise<PersonaResponseDto[]> {
     return this.afiliadosService.findAll();

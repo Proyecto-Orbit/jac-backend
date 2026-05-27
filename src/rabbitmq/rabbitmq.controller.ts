@@ -88,16 +88,19 @@ export class RabbitMQController {
 
     try {
       const { tipoAccion, datos, entidadId } = data;
+      
+      // Limpiar el payload removiendo campos enriquecidos (_nombre, etc)
+      const datoLimpio = this.limpiarPayload(datos);
 
       switch (tipoAccion) {
         case 'CREAR':
-          await this.jacService.create(datos);
-          this.logger.log(`Nueva JAC creada tras aprobación: "${datos.nombreCompleto}"`);
+          await this.jacService.create(datoLimpio);
+          this.logger.log(`Nueva JAC creada tras aprobación: "${datoLimpio.nombreCompleto}"`);
           break;
 
         case 'EDITAR':
           if (entidadId) {
-            await this.jacService.update(Number(entidadId), datos);
+            await this.jacService.update(Number(entidadId), datoLimpio);
             this.logger.log(`JAC id=${entidadId} actualizada tras aprobación`);
           }
           break;
@@ -116,5 +119,19 @@ export class RabbitMQController {
       const msg = error instanceof Error ? error.message : 'Error desconocido';
       this.logger.error(`Error aplicando solicitud aprobada de JAC: ${msg}`);
     }
+  }
+
+  /**
+   * Remueve campos enriquecidos que terminan en "_nombre"
+   * Estos campos son solo para auditoría/presentación, no para guardar en la entidad
+   */
+  private limpiarPayload(datos: any): any {
+    const limpio: any = {};
+    for (const key in datos) {
+      if (!key.endsWith('_nombre')) {
+        limpio[key] = datos[key];
+      }
+    }
+    return limpio;
   }
 }

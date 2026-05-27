@@ -5,6 +5,8 @@ import {
   IsInt,
   IsEmail,
   MinLength,
+  IsBoolean,
+  IsDateString,
 } from 'class-validator';
 
 export class CreatePersonaDto {
@@ -45,4 +47,36 @@ export class CreatePersonaDto {
   @IsOptional()
   @IsEmail({}, { message: 'El correo no es válido' })
   correo?: string;
+
+  @IsOptional()
+  @IsString()
+  genero?: string;
+
+  @IsOptional()
+  @IsString()
+  grupoEtnico?: string;
+
+  @IsOptional()
+  @IsDateString()
+  fechaNacimiento?: string;
+
+  @IsOptional()
+  @IsString()
+  rangoEdad?: string;
+
+  @IsOptional()
+  @IsString()
+  ocupacion?: string;
+
+  @IsOptional()
+  @IsString()
+  direccion?: string;
+
+  @IsOptional()
+  @IsString()
+  estudiosRealizados?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  discapacitado?: boolean;
 }
