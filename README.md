@@ -115,7 +115,7 @@ python -m venv migracion_env
 
 #### Instalar dependencias
 
-pip install -r migracion/migracion_requirements.txt
+pip install -r migration/jac_migracion/migracion_requirements.txt
 
 #### Preparar archivo de datos
 
@@ -130,16 +130,16 @@ El archivo real no se incluye en el repositorio para proteger datos sensibles.
 ### 5. Ejecutar scripts de migración
 
 #### - Datos base
-migracion/seed-cargo.sql
+migration/jac_migracion/seed-cargo.sql
 
 #### - Migración principal
-migracion/migracion.py
+migration/jac_migracion/migracion.py
 
 #### - Limpieza post-migración
-migracion/post-migracion.sql
+migration/jac_migracion/post-migracion.sql
 
 #### - Asignación de tipo (Barrio/Vereda) a las JACs migradas
-migracion/asignar-tipo-jac.sql
+migration/jac_migracion/asignar-tipo-jac.sql
 
 ---
 

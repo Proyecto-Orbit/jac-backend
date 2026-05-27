@@ -192,9 +192,9 @@ npm run test:cov           # cobertura
 
 Migración (Python, env virtual `migracion_env`):
 ```
-pip install -r migracion/migracion_requirements.txt
+pip install -r migration/jac_migracion/migracion_requirements.txt
 # 1) seed-cargo.sql en BD vacía
-# 2) python migracion/migracion.py (requiere statics/datos.xlsx)
+# 2) python migration/jac_migracion/migracion.py (requiere statics/datos.xlsx)
 # 3) post-migracion.sql
 ```
 
