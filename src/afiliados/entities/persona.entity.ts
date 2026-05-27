@@ -43,6 +43,9 @@ export class Persona {
   @Column({ type: 'varchar', length: 150, nullable: true })
   correo!: string | null;
 
+  @Column({ type: 'boolean', default: true, nullable: false })
+  activo!: boolean;
+
   @ManyToOne(() => Cargo, (cargo) => cargo.personas, { nullable: true })
   @JoinColumn({ name: 'cargo_id' })
   cargo!: Cargo | null;

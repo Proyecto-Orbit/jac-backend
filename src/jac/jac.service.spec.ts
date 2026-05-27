@@ -5,6 +5,7 @@ import { JacService } from './jac.service';
 import { EstadoJAC, JAC, TipoJAC } from './entities/jac.entity';
 import { CreateJACDto } from './dto/create-jac.dto';
 import { RabbitMQService } from '../rabbitmq/rabbitmq.service';
+import { AsocomunalService } from '../asocomunal/asocomunal.service';
 
 /**
  * Pruebas unitarias del flujo de creación de JAC enfoque caja blanca y caja negra.
@@ -35,11 +36,16 @@ describe('JacService.create', () => {
       notifyJACDeleted: jest.fn().mockResolvedValue(undefined),
     };
 
+    const asocomunalServiceMock = {
+      findAll: jest.fn().mockResolvedValue([]),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         JacService,
         { provide: getRepositoryToken(JAC), useValue: repositoryMock },
         { provide: RabbitMQService, useValue: rabbitMQServiceMock },
+        { provide: AsocomunalService, useValue: asocomunalServiceMock },
       ],
     }).compile();
 

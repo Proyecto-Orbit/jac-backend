@@ -161,7 +161,14 @@ export class JacService {
       throw new NotFoundException(`JAC con ID ${id} no encontrada`);
     }
 
-    Object.assign(jac, updateJACDto);
+    // Solo asignamos las propiedades del DTO que no sean undefined para evitar
+    // sobrescribir valores existentes (como asocomunalId) con undefined.
+    Object.keys(updateJACDto).forEach((key) => {
+      const value = (updateJACDto as any)[key];
+      if (value !== undefined) {
+        (jac as any)[key] = value;
+      }
+    });
     await this.jacRepository.save(jac);
 
     await this.rabbitMQService.notifyJACUpdated({

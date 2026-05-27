@@ -93,6 +93,10 @@ export class JacItemDto {
    */
   enRiesgo!: boolean;
   miembros!: AfiliadoItemDto[];
+  /** ID de la Asocomunal a la que pertenece la JAC. */
+  asocomunalId!: number | null;
+  /** Nombre de la Asocomunal para mostrar en formularios de edición. */
+  asocomunalNombre!: string | null;
 
   static fromEntity(jac: JAC): JacItemDto {
     const dto = new JacItemDto();
@@ -105,6 +109,10 @@ export class JacItemDto {
     dto.estado = jac.estado === 'activa' ? 'Activa' : jac.estado === 'inactiva' ? 'Inactiva' : 'Cancelada';
     dto.miembros = (jac.personas ?? []).map((persona) => AfiliadoItemDto.fromEntity(persona));
     dto.afiliados = dto.miembros.length;
+    
+    // Incluir datos de la Asocomunal
+    dto.asocomunalId = jac.asocomunalId;
+    dto.asocomunalNombre = jac.asocomunal?.nombre ?? null;
 
     const esVereda = jac.tipo === TipoJAC.VEREDA;
     dto.tipo = esVereda ? 'Vereda' : 'Barrio';

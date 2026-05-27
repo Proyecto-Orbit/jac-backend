@@ -4,13 +4,16 @@
  * Extiende CreateJACDto haciendo todos los campos opcionales
  * Esto permite enviar solo los campos que se quieren actualizar
  * 
+ * Campos NO editables:
+ * - `tipo`: Define requisitos legales de afiliados (Ley 2166). Se define en creación.
+ * 
  * @decorator @PartialType() - Hace todos los campos opcionales
  */
-import { PartialType } from '@nestjs/mapped-types';
+import { PartialType, OmitType } from '@nestjs/mapped-types';
 import { CreateJACDto } from './create-jac.dto';
 import { IsIn, IsOptional, IsString, IsNumber } from 'class-validator';
 
-export class UpdateJACDto extends PartialType(CreateJACDto) {
+export class UpdateJACDto extends PartialType(OmitType(CreateJACDto, ['tipo'])) {
   @IsOptional()
   @IsString()
   actualizadoPor?: string;
