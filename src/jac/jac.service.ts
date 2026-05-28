@@ -2,6 +2,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { EstadoJAC, JAC, TipoJAC } from './entities/jac.entity';
+import { PersonaJAC } from '../afiliados/entities/persona-jac.entity';
 import { CreateJACDto } from './dto/create-jac.dto';
 import { UpdateJACDto } from './dto/update-jac.dto';
 import { JACResponseDto } from './dto/jac-response.dto';
@@ -9,6 +10,7 @@ import { JacItemDto, JacListItemDto, JacPublicItemDto } from './dto/jac-item.dto
 import { SearchJACDto } from './dto/search-jac.dto';
 import { RabbitMQService } from '../rabbitmq/rabbitmq.service';
 import { AsocomunalService } from '../asocomunal/asocomunal.service';
+import { Persona } from '../afiliados/entities/persona.entity';
 
 /**
  * Servicio de negocio para la gestión de JACs.
@@ -25,6 +27,10 @@ export class JacService {
   constructor(
     @InjectRepository(JAC)
     private readonly jacRepository: Repository<JAC>,
+    @InjectRepository(PersonaJAC)
+    private readonly personaJacRepository: Repository<PersonaJAC>,
+    @InjectRepository(Persona)
+    private readonly personaRepository: Repository<Persona>,
     private readonly rabbitMQService: RabbitMQService,
     private readonly asocomunalService: AsocomunalService,
   ) {}
@@ -188,7 +194,7 @@ export class JacService {
   }
 
   /**
-   * Realiza la eliminación lógica de una JAC cambiando su `estado` a `inactiva`.
+   * Realiza la eliminación lógica de una JAC cambiando su `estado` a `cancelada`.
    *
    * @remarks
    * El registro no se borra de la base de datos para mantener historial.
@@ -204,9 +210,12 @@ export class JacService {
       throw new NotFoundException(`JAC con ID ${id} no encontrada`);
     }
 
-    jac.estado = EstadoJAC.INACTIVA;
+    jac.estado = EstadoJAC.CANCELADA;
     await this.jacRepository.save(jac);
-    // Nota: notifyJACDeleted no necesita estado, ya que siempre es 'inactiva'
+    // ESTO NO DEBERIA DE ESTAR, EN EL DISEÑO DE LA BASE DE DATOS UNA PERSONA PUEDE PERTENECER SOLO A UNA JAC
+    await this.personaJacRepository.delete({ jacId: jac.id });
+    await this.personaRepository.update({ jacId: jac.id }, { jacId: null });
+    // Nota: notifyJACDeleted no necesita estado, ya que siempre es 'cancelada'
     await this.rabbitMQService.notifyJACDeleted(jac.id);
 
     this.logger.log(`JAC id=${id} desactivada`);
@@ -257,12 +266,12 @@ export class JacService {
       select: ['id', 'nombreCorto', 'tipo'],
     });
     console.log(
-  jacs.slice(0, 20).map(j => ({
-    nombre: j.nombreCorto,
-    tipo: j.tipo,
-    tipoReal: typeof j.tipo
-  }))
-);
+      jacs.slice(0, 20).map(j => ({
+        nombre: j.nombreCorto,
+        tipo: j.tipo,
+        tipoReal: typeof j.tipo,
+      })),
+    );
 
     const urbanCount = jacs.filter(jac => jac.tipo === TipoJAC.BARRIO).length;
     const ruralCount = jacs.filter(jac => jac.tipo === TipoJAC.VEREDA).length;
