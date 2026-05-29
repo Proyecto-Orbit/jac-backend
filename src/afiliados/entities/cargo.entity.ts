@@ -1,6 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from 'typeorm';
 import { Persona } from './persona.entity';
-import { PersonaCargo } from './persona-cargo.entity';
 
 @Entity('CARGO')
 export class Cargo {
@@ -12,7 +11,4 @@ export class Cargo {
 
   @OneToMany(() => Persona, (persona) => persona.cargo)
   personas!: Persona[];
-
-  @OneToMany(() => PersonaCargo, (pc) => pc.cargo)
-  personaCargos!: PersonaCargo[];
 }

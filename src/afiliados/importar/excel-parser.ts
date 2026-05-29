@@ -11,12 +11,29 @@ export const SHEET_DIGNATARIOS = 'RELACION DIGNATARIOS';
 /** Fila (1-based) donde inicia la data en la sheet de afiliados. */
 const DATA_START_AFILIADOS = 3;
 
-/** Índices (1-based) de las columnas relevantes en la sheet de afiliados. */
+/**
+ * Índices (1-based) de las columnas de la sheet de afiliados.
+ *
+ * @remarks
+ * Las columnas multi-celda (género, grupo étnico, discapacitado) usan
+ * sub-columnas marcadas con "X" para indicar la opción seleccionada.
+ */
 const COL_AFILIADOS = {
   nombreCompleto: 2,
   cedula: 3,
   lugarExpedicion: 4,
   fechaNacimiento: 5,
+  estudiosRealizados: 6,
+  ocupacion: 7,
+  generoH: 8,
+  generoM: 9,
+  generoLGTBIQ: 10,
+  etniaAfro: 11,
+  etniaIndigena: 12,
+  etniaMestizo: 13,
+  etniaCampesino: 14,
+  discapacitadoSi: 15,
+  discapacitadoNo: 16,
   telefono: 17,
   correo: 18,
 } as const;
@@ -50,6 +67,12 @@ export interface ParsedAfiliado {
   apellido: string;
   cedula: string;
   lugarExpedicionCedula: string | null;
+  fechaNacimiento: Date | null;
+  estudiosRealizados: string | null;
+  ocupacion: string | null;
+  genero: string | null;
+  grupoEtnico: string | null;
+  discapacitado: boolean | null;
   telefono: string | null;
   correo: string | null;
 }
@@ -112,6 +135,20 @@ function normalizar(texto: string | null): string {
 }
 
 /**
+ * Determina si una sub-columna de tipo "checkbox" está marcada.
+ *
+ * @remarks
+ * Considera marcada cualquier celda cuyo contenido (sin espacios ni tildes,
+ * en MAYÚSCULAS) coincida con "X", "SI" o "1". Vacío = no marcado.
+ */
+function estaMarcada(valor: ExcelJS.CellValue): boolean {
+  const texto = celdaATexto(valor);
+  if (!texto) return false;
+  const n = normalizar(texto);
+  return n === 'X' || n === 'SI' || n === '1';
+}
+
+/**
  * Separa "NOMBRES Y APELLIDOS" en nombre + apellido.
  *
  * Reglas (idénticas a la migración Python):
@@ -130,40 +167,43 @@ function parsearNombre(nombreCompleto: string): { nombre: string; apellido: stri
 }
 
 /**
- * Valida el formato de la fecha de nacimiento esperado: DD/MM/YYYY.
+ * Valida y extrae la fecha de nacimiento (DD/MM/YYYY o Date nativo de Excel).
  *
  * @remarks
- * Acepta también celdas formateadas como fecha por Excel (Date object),
- * porque internamente representan una fecha válida. Si la celda viene
- * vacía retorna `{ valido: true }` (la fecha no es obligatoria).
+ * Si la celda viene vacía retorna `{ valido: true, fecha: null }`: la fecha
+ * no es obligatoria. Si viene con formato inválido o representa una fecha
+ * irreal (31/02/2000, etc.), retorna `valido: false` con el motivo.
  */
-function validarFechaNacimiento(
+function extraerFechaNacimiento(
   valor: ExcelJS.CellValue,
-): { valido: boolean; motivo?: string } {
-  if (valor === null || valor === undefined) return { valido: true };
+): { valido: boolean; fecha: Date | null; motivo?: string } {
+  if (valor === null || valor === undefined) {
+    return { valido: true, fecha: null };
+  }
 
-  // Excel suele entregar fechas como Date object directamente.
   if (valor instanceof Date) {
     if (Number.isNaN(valor.getTime())) {
-      return { valido: false, motivo: 'Fecha de nacimiento inválida' };
+      return { valido: false, fecha: null, motivo: 'Fecha de nacimiento inválida' };
     }
-    return { valido: true };
+    return { valido: true, fecha: valor };
   }
 
   if (typeof valor === 'number') {
     return {
       valido: false,
+      fecha: null,
       motivo: 'Fecha de nacimiento numérica; debe estar en formato DD/MM/YYYY',
     };
   }
 
   const texto = celdaATexto(valor);
-  if (!texto) return { valido: true };
+  if (!texto) return { valido: true, fecha: null };
 
   const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(texto);
   if (!match) {
     return {
       valido: false,
+      fecha: null,
       motivo: `Fecha de nacimiento "${texto}" no tiene el formato DD/MM/YYYY`,
     };
   }
@@ -178,15 +218,15 @@ function validarFechaNacimiento(
   ) {
     return {
       valido: false,
+      fecha: null,
       motivo: `Fecha de nacimiento "${texto}" no representa una fecha real`,
     };
   }
-  return { valido: true };
+  return { valido: true, fecha };
 }
 
 /**
  * Verifica que la cédula esté compuesta exclusivamente por dígitos.
- * Permite que el valor venga como número desde Excel (sin decimales).
  */
 function validarCedulaFormato(cedula: string): { valido: boolean; motivo?: string } {
   if (!/^\d+$/.test(cedula)) {
@@ -212,6 +252,50 @@ function validarTelefonoFormato(
     };
   }
   return { valido: true };
+}
+
+/**
+ * Extrae el género de la fila a partir de las sub-columnas H / M / LGTBIQ+.
+ * Si hay marcas múltiples, prioriza H > M > LGTBIQ+.
+ */
+function extraerGenero(row: ExcelJS.Row): string | null {
+  if (estaMarcada(row.getCell(COL_AFILIADOS.generoH).value)) return 'H';
+  if (estaMarcada(row.getCell(COL_AFILIADOS.generoM).value)) return 'M';
+  if (estaMarcada(row.getCell(COL_AFILIADOS.generoLGTBIQ).value)) return 'LGTBIQ+';
+  return null;
+}
+
+/**
+ * Extrae el grupo étnico a partir de las sub-columnas Afro / Indígena /
+ * Mestizo / Campesino. Si hay marcas múltiples, prioriza en ese orden.
+ */
+function extraerGrupoEtnico(row: ExcelJS.Row): string | null {
+  if (estaMarcada(row.getCell(COL_AFILIADOS.etniaAfro).value)) return 'Afro';
+  if (estaMarcada(row.getCell(COL_AFILIADOS.etniaIndigena).value)) return 'Indígena';
+  if (estaMarcada(row.getCell(COL_AFILIADOS.etniaMestizo).value)) return 'Mestizo';
+  if (estaMarcada(row.getCell(COL_AFILIADOS.etniaCampesino).value)) return 'Campesino';
+  return null;
+}
+
+/**
+ * Extrae el flag de discapacidad. Si SI y NO están marcados a la vez,
+ * retorna `{ valido: false }` para que la fila reporte el conflicto.
+ */
+function extraerDiscapacitado(
+  row: ExcelJS.Row,
+): { valido: boolean; discapacitado: boolean | null; motivo?: string } {
+  const si = estaMarcada(row.getCell(COL_AFILIADOS.discapacitadoSi).value);
+  const no = estaMarcada(row.getCell(COL_AFILIADOS.discapacitadoNo).value);
+  if (si && no) {
+    return {
+      valido: false,
+      discapacitado: null,
+      motivo: 'Discapacitado marcado en SI y NO al mismo tiempo',
+    };
+  }
+  if (si) return { valido: true, discapacitado: true };
+  if (no) return { valido: true, discapacitado: false };
+  return { valido: true, discapacitado: null };
 }
 
 /**
@@ -244,7 +328,6 @@ function parsearAfiliados(
     const nombreCompleto = celdaATexto(row.getCell(COL_AFILIADOS.nombreCompleto).value);
     const cedula = celdaATexto(row.getCell(COL_AFILIADOS.cedula).value);
 
-    // Fila completamente vacía → la saltamos sin error.
     if (!nombreCompleto && !cedula) continue;
 
     if (!nombreCompleto) {
@@ -277,8 +360,8 @@ function parsearAfiliados(
       continue;
     }
 
-    // Validaciones de formato — acumulan errores pero NO descartan la fila,
-    // porque preferimos reportar todos los problemas detectables a la vez.
+    // Validaciones de formato — acumulan errores pero NO descartan la fila
+    // hasta el final, así reportamos todos los problemas detectables.
     let filaValida = true;
 
     const cedulaCheck = validarCedulaFormato(cedula);
@@ -292,15 +375,15 @@ function parsearAfiliados(
       filaValida = false;
     }
 
-    const fechaCheck = validarFechaNacimiento(
+    const fechaInfo = extraerFechaNacimiento(
       row.getCell(COL_AFILIADOS.fechaNacimiento).value,
     );
-    if (!fechaCheck.valido) {
+    if (!fechaInfo.valido) {
       errores.push({
         sheet: SHEET_AFILIADOS,
         fila: r,
         cedula,
-        motivo: fechaCheck.motivo!,
+        motivo: fechaInfo.motivo!,
       });
       filaValida = false;
     }
@@ -330,7 +413,20 @@ function parsearAfiliados(
       }
     }
 
+    const discapacidadInfo = extraerDiscapacitado(row);
+    if (!discapacidadInfo.valido) {
+      errores.push({
+        sheet: SHEET_AFILIADOS,
+        fila: r,
+        cedula,
+        motivo: discapacidadInfo.motivo!,
+      });
+      filaValida = false;
+    }
+
     const correo = celdaATexto(row.getCell(COL_AFILIADOS.correo).value);
+    const estudios = celdaATexto(row.getCell(COL_AFILIADOS.estudiosRealizados).value);
+    const ocupacion = celdaATexto(row.getCell(COL_AFILIADOS.ocupacion).value);
 
     if (!filaValida) continue;
 
@@ -340,6 +436,12 @@ function parsearAfiliados(
       apellido: (apellido || '').slice(0, 100),
       cedula: cedula.slice(0, 20),
       lugarExpedicionCedula: lugar ? lugar.slice(0, 50) : null,
+      fechaNacimiento: fechaInfo.fecha,
+      estudiosRealizados: estudios ? estudios.slice(0, 100) : null,
+      ocupacion: ocupacion ? ocupacion.slice(0, 100) : null,
+      genero: extraerGenero(row),
+      grupoEtnico: extraerGrupoEtnico(row),
+      discapacitado: discapacidadInfo.discapacitado,
       telefono: telefono ? telefono.slice(0, 20) : null,
       correo: correo ? correo.slice(0, 150) : null,
     });
@@ -350,7 +452,6 @@ function parsearAfiliados(
 
 /**
  * Detecta la sección a la que pertenece una fila a partir del texto de la columna A.
- * Retorna `null` cuando el texto no corresponde a una cabecera reconocida.
  */
 function detectarSeccion(textoCol: string): Seccion | null {
   const n = normalizar(textoCol);
@@ -385,21 +486,16 @@ function parsearDignatarios(
 
     if (!colA && !cedula) continue;
 
-    // ¿Es una cabecera de sección? Si lo es, actualizar contexto y seguir.
     if (colA) {
       const nuevaSeccion = detectarSeccion(colA);
       if (nuevaSeccion !== null) {
         seccion = nuevaSeccion;
         continue;
       }
-      // "Y CONCILIACION" es continuación visual de la cabecera anterior.
       if (normalizar(colA) === 'Y CONCILIACION') continue;
     }
 
-    if (!cedula) {
-      // Fila con texto en col A pero sin cédula: cargo declarado sin asignar → ignorar silenciosamente.
-      continue;
-    }
+    if (!cedula) continue;
 
     let cargoNombre: string | null = null;
     const colAUpper = normalizar(colA);
@@ -407,7 +503,6 @@ function parsearDignatarios(
     if (colAUpper && CARGOS_DIRECTOS[colAUpper]) {
       cargoNombre = CARGOS_DIRECTOS[colAUpper];
     } else if (colAUpper.startsWith('DE:')) {
-      // "DE: deportes" dentro de COMISIONES DE TRABAJO
       const resto = colA!.slice(colA!.indexOf(':') + 1).trim();
       if (!resto) {
         errores.push({
@@ -438,6 +533,17 @@ function parsearDignatarios(
         fila: r,
         cedula,
         motivo: `No se pudo determinar el cargo para la cédula ${cedula}`,
+      });
+      continue;
+    }
+
+    // Validar formato de cédula también en Sheet 2.
+    if (!/^\d+$/.test(cedula)) {
+      errores.push({
+        sheet: SHEET_DIGNATARIOS,
+        fila: r,
+        cedula,
+        motivo: `La identificación "${cedula}" contiene caracteres no numéricos`,
       });
       continue;
     }

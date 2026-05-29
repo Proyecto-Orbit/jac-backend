@@ -3,14 +3,19 @@ import {
   PrimaryGeneratedColumn,
   Column,
   ManyToOne,
-  OneToMany,
   JoinColumn,
 } from 'typeorm';
 import { Cargo } from './cargo.entity';
-import { PersonaCargo } from './persona-cargo.entity';
-import { PersonaJAC } from './persona-jac.entity';
 import { JAC } from '../../jac/entities/jac.entity';
 
+/**
+ * Entidad que representa a una persona afiliada a una JAC.
+ *
+ * @remarks
+ * La relación con {@link JAC} y {@link Cargo} es 1-N directa: una persona
+ * pertenece a UNA JAC y ocupa UN cargo a la vez. No se conserva historial
+ * de afiliaciones ni de cargos en tablas intermedias.
+ */
 @Entity('PERSONA')
 export class Persona {
   @PrimaryGeneratedColumn()
@@ -52,14 +57,8 @@ export class Persona {
   @Column({ type: 'date', nullable: true, name: 'fecha_nacimiento' })
   fechaNacimiento!: Date | null;
 
-  @Column({ type: 'varchar', length: 30, nullable: true, name: 'rango_edad' })
-  rangoEdad!: string | null;
-
   @Column({ type: 'varchar', length: 100, nullable: true })
   ocupacion!: string | null;
-
-  @Column({ type: 'varchar', length: 200, nullable: true })
-  direccion!: string | null;
 
   @Column({ type: 'varchar', length: 100, nullable: true, name: 'estudios_realizados' })
   estudiosRealizados!: string | null;
@@ -77,10 +76,4 @@ export class Persona {
   @ManyToOne(() => JAC, (jac) => jac.personas, { nullable: true, eager: false })
   @JoinColumn({ name: 'JAC_id' })
   jac!: JAC | null;
-
-  @OneToMany(() => PersonaCargo, (pc) => pc.persona)
-  personaCargos!: PersonaCargo[];
-
-  @OneToMany(() => PersonaJAC, (pj) => pj.persona)
-  personaJacs!: PersonaJAC[];
 }

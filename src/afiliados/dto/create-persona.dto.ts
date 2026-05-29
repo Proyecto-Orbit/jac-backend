@@ -62,15 +62,7 @@ export class CreatePersonaDto {
 
   @IsOptional()
   @IsString()
-  rangoEdad?: string;
-
-  @IsOptional()
-  @IsString()
   ocupacion?: string;
-
-  @IsOptional()
-  @IsString()
-  direccion?: string;
 
   @IsOptional()
   @IsString()
