@@ -18,11 +18,9 @@ import { AfiliadosService } from './afiliados.service';
 import { ImportarAfiliadosService } from './importar/importar-afiliados.service';
 import { CreatePersonaDto } from './dto/create-persona.dto';
 import { UpdatePersonaDto } from './dto/update-persona.dto';
-import { AssignCargoDto } from './dto/assign-cargo.dto';
 import { ImportarAfiliadosDto } from './dto/importar-afiliados.dto';
 import { ImportarAfiliadosResultDto } from './dto/importar-afiliados-result.dto';
 import { PersonaResponseDto } from './dto/persona-response.dto';
-import { PersonaCargo } from './entities/persona-cargo.entity';
 import { Cargo } from './entities/cargo.entity';
 import { Auth } from '../auth/auth.decorator';
 import { Role } from '../auth/role.enum';
@@ -49,9 +47,11 @@ export class AfiliadosController {
    *    "RELACION DIGNATARIOS".
    *  - `jacId`: ID de la JAC a la que se asociarán las personas.
    *
-   * Si alguna validación falla (cédulas/correos duplicados, JAC inexistente,
+   * Si alguna validación falla (cédulas duplicadas, persona afiliada a otra
+   * JAC, formato inválido, lugar de expedición no reconocido, JAC inexistente,
    * cargos inválidos), responde 400 con la lista completa de errores y NO
-   * persiste nada. En éxito, todo se inserta dentro de una sola transacción.
+   * persiste nada. En éxito, todo se inserta/actualiza dentro de una sola
+   * transacción.
    */
   @Auth(Role.ADMIN)
   @Post('importar-excel')
@@ -71,23 +71,12 @@ export class AfiliadosController {
   ): Promise<ImportarAfiliadosResultDto> {
     const nombre = (archivo.originalname || '').toLowerCase();
     if (!nombre.endsWith('.xlsx')) {
-      throw new BadRequestException(
-        'El archivo debe tener extensión .xlsx',
-      );
+      throw new BadRequestException('El archivo debe tener extensión .xlsx');
     }
     return this.importarAfiliadosService.importarExcel(
       archivo.buffer,
       body.jacId,
     );
-  }
-
-  @Auth(Role.ADMIN)
-  @Post('bulk')
-  createBulk(
-    @Body('data') data: any[],
-    @Body('jacId') jacId: number,
-  ): Promise<any> {
-    return this.afiliadosService.createBulk(data, jacId);
   }
 
   @Auth(Role.ADMIN)
@@ -121,20 +110,5 @@ export class AfiliadosController {
   @Delete(':id')
   remove(@Param('id', ParseIntPipe) id: number): Promise<{ message: string }> {
     return this.afiliadosService.remove(id);
-  }
-
-  @Auth(Role.ADMIN)
-  @Post(':id/cargo')
-  assignCargo(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() assignCargoDto: AssignCargoDto,
-  ): Promise<PersonaCargo> {
-    return this.afiliadosService.assignCargo(id, assignCargoDto);
-  }
-
-  @Auth(Role.ADMIN)
-  @Get(':id/cargos')
-  findCargos(@Param('id', ParseIntPipe) id: number): Promise<PersonaCargo[]> {
-    return this.afiliadosService.findCargos(id);
   }
 }

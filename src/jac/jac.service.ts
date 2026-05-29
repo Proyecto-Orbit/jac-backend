@@ -2,7 +2,6 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { EstadoJAC, JAC, TipoJAC } from './entities/jac.entity';
-import { PersonaJAC } from '../afiliados/entities/persona-jac.entity';
 import { CreateJACDto } from './dto/create-jac.dto';
 import { UpdateJACDto } from './dto/update-jac.dto';
 import { JACResponseDto } from './dto/jac-response.dto';
@@ -27,8 +26,6 @@ export class JacService {
   constructor(
     @InjectRepository(JAC)
     private readonly jacRepository: Repository<JAC>,
-    @InjectRepository(PersonaJAC)
-    private readonly personaJacRepository: Repository<PersonaJAC>,
     @InjectRepository(Persona)
     private readonly personaRepository: Repository<Persona>,
     private readonly rabbitMQService: RabbitMQService,
@@ -212,8 +209,8 @@ export class JacService {
 
     jac.estado = EstadoJAC.CANCELADA;
     await this.jacRepository.save(jac);
-    // ESTO NO DEBERIA DE ESTAR, EN EL DISEÑO DE LA BASE DE DATOS UNA PERSONA PUEDE PERTENECER SOLO A UNA JAC
-    await this.personaJacRepository.delete({ jacId: jac.id });
+    // Al cancelar la JAC, desvinculamos a sus afiliados (jac_id → null).
+    // La persona sigue existiendo y puede afiliarse a otra JAC luego.
     await this.personaRepository.update({ jacId: jac.id }, { jacId: null });
     // Nota: notifyJACDeleted no necesita estado, ya que siempre es 'cancelada'
     await this.rabbitMQService.notifyJACDeleted(jac.id);
