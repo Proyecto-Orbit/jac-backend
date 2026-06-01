@@ -16,6 +16,11 @@ import { UpdateJACDto } from './dto/update-jac.dto';
 import { SearchJACDto } from './dto/search-jac.dto';
 import { JACResponseDto } from './dto/jac-response.dto';
 import { JacItemDto, JacListItemDto, JacPublicItemDto } from './dto/jac-item.dto';
+import {
+  AlertasJacPage,
+  AlertasQueryDto,
+  AlertasResumen,
+} from './dto/alertas.dto';
 import { Auth } from '../auth/auth.decorator';
 import { Role } from '../auth/role.enum';
 
@@ -130,6 +135,36 @@ async getPublicStats() {
   @Get('buscar')
   search(@Query() filters: SearchJACDto): Promise<JacListItemDto[]> {
     return this.jacService.search(filters);
+  }
+
+  /**
+   * `GET /jac/alertas/resumen`
+   *
+   * Conteos agregados de alertas (JACs en riesgo, sin RUC, sin NIT, etc.).
+   * Una sola consulta agregada; sin parámetros.
+   */
+  @Auth(Role.ADMIN, Role.OPERADOR)
+  @Get('alertas/resumen')
+  getAlertasResumen(): Promise<AlertasResumen> {
+    return this.jacService.getAlertasResumen();
+  }
+
+  /**
+   * `GET /jac/alertas`
+   *
+   * Detalle paginado de una categoría de alerta.
+   *
+   * @param query - `categoria` (requerido), `page`, `limit`, `busqueda`.
+   * @returns Página de JACs que cumplen la categoría.
+   *
+   * @example
+   * GET /jac/alertas?categoria=riesgo_activa&page=1&limit=10
+   * GET /jac/alertas?categoria=sin_nit&busqueda=popay%C3%A1n
+   */
+  @Auth(Role.ADMIN, Role.OPERADOR)
+  @Get('alertas')
+  getAlertas(@Query() query: AlertasQueryDto): Promise<AlertasJacPage> {
+    return this.jacService.getAlertas(query);
   }
 
   /**

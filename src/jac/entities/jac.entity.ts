@@ -1,6 +1,7 @@
 import {
   Column,
   Entity,
+  Index,
   JoinColumn,
   ManyToOne,
   OneToMany,
@@ -47,6 +48,12 @@ export enum TipoJAC {
  * Asocomunal. La eliminación es **lógica** cambiando `estado` a `inactiva`.
  */
 @Entity('JAC')
+// Índices que aceleran los conteos y filtros del módulo de alertas
+// (evitan full scans al filtrar por estado, tipo o presencia de RUC/NIT).
+@Index('idx_jac_estado', ['estado'])
+@Index('idx_jac_tipo', ['tipo'])
+@Index('idx_jac_numero_ruc', ['numeroRUC'])
+@Index('idx_jac_nit', ['nit'])
 export class JAC {
   /**
    * Identificador primario auto-incremental de la JAC.

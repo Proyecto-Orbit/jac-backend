@@ -13,11 +13,12 @@ export type RolAfiliado =
   | 'Afiliado';
 
 /**
- * Mínimo legal de afiliados para que una JAC permanezca activa.
- * Equivale al 50 % del mínimo de constitución según la Ley 2166 de 2021 (Art. 11).
+ * Mínimo de afiliados para que una JAC permanezca activa según su tipo de
+ * territorio. Estos umbrales se usan tanto en el cálculo de `enRiesgo` de las
+ * vistas de detalle como en los conteos del módulo de alertas.
  */
-export const MINIMO_AFILIADOS_BARRIO = 38;
-export const MINIMO_AFILIADOS_VEREDA = 10;
+export const MINIMO_AFILIADOS_BARRIO = 50;
+export const MINIMO_AFILIADOS_VEREDA = 20;
 
 export class AfiliadoItemDto {
   id!: number;

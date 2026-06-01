@@ -10,8 +10,25 @@ import { EstadoJAC, JAC, TipoJAC } from './entities/jac.entity';
 import { CreateJACDto } from './dto/create-jac.dto';
 import { UpdateJACDto } from './dto/update-jac.dto';
 import { JACResponseDto } from './dto/jac-response.dto';
-import { JacItemDto, JacListItemDto, JacPublicItemDto } from './dto/jac-item.dto';
+import {
+  EstadoOrganizativo,
+  JacItemDto,
+  JacListItemDto,
+  JacPublicItemDto,
+  MINIMO_AFILIADOS_BARRIO,
+  MINIMO_AFILIADOS_VEREDA,
+} from './dto/jac-item.dto';
 import { SearchJACDto } from './dto/search-jac.dto';
+import {
+  AlertaJacItem,
+  AlertasJacPage,
+  AlertasQueryDto,
+  AlertasResumen,
+  ALERTAS_LIMIT_DEFAULT,
+  ALERTAS_LIMIT_MAX,
+  ALERTAS_PAGE_DEFAULT,
+  CategoriaAlerta,
+} from './dto/alertas.dto';
 import { RabbitMQService } from '../rabbitmq/rabbitmq.service';
 import { AsocomunalService } from '../asocomunal/asocomunal.service';
 import { Persona } from '../afiliados/entities/persona.entity';
@@ -316,5 +333,189 @@ export class JacService {
         count: parseInt(item.count, 10),
       })),
     };
+  }
+
+  // ───────────────────────────────────────────────────────────────────────
+  //  Módulo de alertas
+  // ───────────────────────────────────────────────────────────────────────
+
+  /**
+   * Conteos agregados de alertas en una sola consulta.
+   *
+   * @remarks
+   * El cómputo de "en riesgo" compara los afiliados de cada JAC contra su
+   * mínimo según el tipo (`barrio` → {@link MINIMO_AFILIADOS_BARRIO},
+   * `vereda` → {@link MINIMO_AFILIADOS_VEREDA}), resuelto con un `CASE` en SQL.
+   *
+   * @returns Objeto {@link AlertasResumen} con los seis contadores.
+   */
+  async getAlertasResumen(): Promise<AlertasResumen> {
+    const rows = (await this.jacRepository.query(
+      `SELECT
+          COUNT(*)::int AS "totalJacs",
+          COUNT(*) FILTER (WHERE sub.estado = 'activa'   AND sub.afiliados < sub.minimo)::int AS "riesgoActiva",
+          COUNT(*) FILTER (WHERE sub.estado = 'inactiva' AND sub.afiliados < sub.minimo)::int AS "riesgoInactiva",
+          COUNT(*) FILTER (WHERE sub.sin_ruc)::int AS "sinRuc",
+          COUNT(*) FILTER (WHERE sub.sin_nit)::int AS "sinNit",
+          COUNT(*) FILTER (WHERE sub.sin_ruc AND sub.sin_nit)::int AS "sinRucNit"
+        FROM (
+          SELECT
+            j.estado,
+            CASE WHEN j.tipo = $1 THEN $2::int ELSE $3::int END AS minimo,
+            (SELECT COUNT(*) FROM "PERSONA" p WHERE p."JAC_id" = j.id)::int AS afiliados,
+            (j.numero_ruc IS NULL OR j.numero_ruc = '') AS sin_ruc,
+            (j.nit IS NULL OR j.nit = '') AS sin_nit
+          FROM "JAC" j
+        ) sub`,
+      [TipoJAC.VEREDA, MINIMO_AFILIADOS_VEREDA, MINIMO_AFILIADOS_BARRIO],
+    )) as Array<Record<string, number>>;
+
+    const r = rows[0] ?? {};
+    return {
+      riesgoActiva: r.riesgoActiva ?? 0,
+      riesgoInactiva: r.riesgoInactiva ?? 0,
+      sinRuc: r.sinRuc ?? 0,
+      sinNit: r.sinNit ?? 0,
+      sinRucNit: r.sinRucNit ?? 0,
+      totalJacs: r.totalJacs ?? 0,
+    };
+  }
+
+  /**
+   * Detalle paginado de una categoría de alerta.
+   *
+   * @remarks
+   * - El filtro de categoría se aplica en SQL (no en memoria).
+   * - `limit` se acota a {@link ALERTAS_LIMIT_MAX} para proteger el servidor.
+   * - `busqueda` filtra por nombre de la JAC o municipio (ILIKE, insensible
+   *   a mayúsculas).
+   *
+   * @param query - Parámetros validados de {@link AlertasQueryDto}.
+   * @returns Página {@link AlertasJacPage}.
+   */
+  async getAlertas(query: AlertasQueryDto): Promise<AlertasJacPage> {
+    const page = query.page && query.page > 0 ? query.page : ALERTAS_PAGE_DEFAULT;
+    const limitSolicitado =
+      query.limit && query.limit > 0 ? query.limit : ALERTAS_LIMIT_DEFAULT;
+    const limit = Math.min(limitSolicitado, ALERTAS_LIMIT_MAX);
+    const offset = (page - 1) * limit;
+
+    // Condición de categoría (texto estático, sin entrada del usuario).
+    const categoriaSql = this.construirFiltroCategoria(query.categoria);
+
+    // Parámetros compartidos por la query de total y la de items.
+    const baseParams: unknown[] = [
+      TipoJAC.VEREDA,
+      MINIMO_AFILIADOS_VEREDA,
+      MINIMO_AFILIADOS_BARRIO,
+    ];
+
+    let busquedaSql = '';
+    if (query.busqueda && query.busqueda.trim() !== '') {
+      baseParams.push(`%${query.busqueda.trim()}%`);
+      const idx = baseParams.length;
+      busquedaSql = ` AND (j.nombre_completo ILIKE $${idx} OR a.municipio_nombre ILIKE $${idx})`;
+    }
+
+    // Subconsulta que materializa afiliados y mínimo por JAC, reutilizada por
+    // la condición de categoría y el filtro de búsqueda.
+    const fromSql = `
+      FROM (
+        SELECT jj.*,
+          (SELECT COUNT(*) FROM "PERSONA" p WHERE p."JAC_id" = jj.id)::int AS afiliados,
+          CASE WHEN jj.tipo = $1 THEN $2::int ELSE $3::int END AS minimo
+        FROM "JAC" jj
+      ) j
+      LEFT JOIN "ASOCOMUNAL" a ON a.id = j.asocomunal_id
+      WHERE ${categoriaSql}${busquedaSql}
+    `;
+
+    // 1) Total de la categoría (para la paginación).
+    const totalRows = (await this.jacRepository.query(
+      `SELECT COUNT(*)::int AS total ${fromSql}`,
+      baseParams,
+    )) as Array<{ total: number }>;
+    const total = totalRows[0]?.total ?? 0;
+
+    // 2) Página de items.
+    const itemsParams = [...baseParams, limit, offset];
+    const limIdx = itemsParams.length - 1;
+    const offIdx = itemsParams.length;
+    const rows = (await this.jacRepository.query(
+      `SELECT
+          j.id,
+          j.nombre_completo AS nombre,
+          COALESCE(a.municipio_nombre, '') AS municipio,
+          COALESCE(j.nombre_corto, '') AS barrio,
+          j.tipo,
+          j.estado,
+          j.numero_ruc AS "numeroRUC",
+          j.nit,
+          j.afiliados,
+          j.minimo AS "minimoAfiliados"
+        ${fromSql}
+        ORDER BY j.nombre_completo ASC
+        LIMIT $${limIdx} OFFSET $${offIdx}`,
+      itemsParams,
+    )) as Array<{
+      id: number;
+      nombre: string;
+      municipio: string;
+      barrio: string;
+      tipo: string;
+      estado: string;
+      numeroRUC: string | null;
+      nit: string | null;
+      afiliados: number;
+      minimoAfiliados: number;
+    }>;
+
+    const items: AlertaJacItem[] = rows.map((row) => ({
+      id: row.id,
+      nombre: row.nombre,
+      municipio: row.municipio,
+      barrio: row.barrio,
+      tipo: row.tipo === TipoJAC.VEREDA ? 'Vereda' : 'Barrio',
+      afiliados: Number(row.afiliados),
+      minimoAfiliados: Number(row.minimoAfiliados),
+      estado: this.mapEstadoOrganizativo(row.estado),
+      numeroRUC:
+        row.numeroRUC && String(row.numeroRUC).trim() !== '' ? row.numeroRUC : null,
+      nit: row.nit && String(row.nit).trim() !== '' ? row.nit : null,
+    }));
+
+    return {
+      items,
+      total,
+      page,
+      limit,
+      totalPages: total === 0 ? 0 : Math.ceil(total / limit),
+    };
+  }
+
+  /**
+   * Devuelve la condición SQL (sin parámetros) que define cada categoría.
+   * El texto es estático y no incorpora entrada del usuario → libre de inyección.
+   */
+  private construirFiltroCategoria(categoria: CategoriaAlerta): string {
+    switch (categoria) {
+      case 'riesgo_activa':
+        return `j.estado = 'activa' AND j.afiliados < j.minimo`;
+      case 'riesgo_inactiva':
+        return `j.estado = 'inactiva' AND j.afiliados < j.minimo`;
+      case 'sin_ruc':
+        return `(j.numero_ruc IS NULL OR j.numero_ruc = '')`;
+      case 'sin_nit':
+        return `(j.nit IS NULL OR j.nit = '')`;
+      case 'sin_ruc_nit':
+        return `(j.numero_ruc IS NULL OR j.numero_ruc = '') AND (j.nit IS NULL OR j.nit = '')`;
+    }
+  }
+
+  /** Traduce el estado almacenado en BD a su forma legible. */
+  private mapEstadoOrganizativo(estado: string): EstadoOrganizativo {
+    if (estado === EstadoJAC.ACTIVA) return 'Activa';
+    if (estado === EstadoJAC.INACTIVA) return 'Inactiva';
+    return 'Cancelada';
   }
 }

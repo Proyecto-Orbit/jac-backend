@@ -66,6 +66,7 @@ describe('JacService.create', () => {
       const dto: CreateJACDto = {
         asocomunalId: 7,
         tipo: TipoJAC.BARRIO,
+        numeroPersoneriaJuridica: 'PJ-001',
         nombreCompleto: 'JAC Barrio Las Flores',
       };
 
@@ -92,6 +93,7 @@ describe('JacService.create', () => {
       const dtoSucio = {
         asocomunalId: 1,
         tipo: TipoJAC.VEREDA,
+        numeroPersoneriaJuridica: 'PJ-001',
         nombreCompleto: 'JAC Vereda El Roble',
         estado: EstadoJAC.ACTIVA,
       } as unknown as CreateJACDto;
@@ -110,6 +112,7 @@ describe('JacService.create', () => {
       const dto: CreateJACDto = {
         asocomunalId: 9,
         tipo: TipoJAC.VEREDA,
+        numeroPersoneriaJuridica: 'PJ-001',
         nombreCompleto: 'JAC Vereda La Esperanza',
         nombreCorto: 'JAC La Esperanza',
         numeroRUC: 'RUC-123',
@@ -132,6 +135,7 @@ describe('JacService.create', () => {
       const dto: CreateJACDto = {
         asocomunalId: 3,
         tipo: TipoJAC.BARRIO,
+        numeroPersoneriaJuridica: 'PJ-001',
         nombreCompleto: 'JAC Barrio Centro',
       };
 
@@ -172,6 +176,7 @@ describe('JacService.create', () => {
         const dto: CreateJACDto = {
           asocomunalId: 1,
           tipo: TipoJAC.BARRIO,
+          numeroPersoneriaJuridica: 'PJ-001',
           nombreCompleto: 'JAC Centro',
         };
 
@@ -190,6 +195,7 @@ describe('JacService.create', () => {
         const dto: CreateJACDto = {
           asocomunalId: 100,
           tipo: TipoJAC.VEREDA,
+          numeroPersoneriaJuridica: 'PJ-001',
           nombreCompleto: 'JAC Vereda Típica',
         };
 
@@ -208,6 +214,7 @@ describe('JacService.create', () => {
         const dto: CreateJACDto = {
           asocomunalId: Number.MAX_SAFE_INTEGER,
           tipo: TipoJAC.BARRIO,
+          numeroPersoneriaJuridica: 'PJ-001',
           nombreCompleto: 'JAC Límite Alto',
         };
 
@@ -226,6 +233,7 @@ describe('JacService.create', () => {
         const dtoInvalido = {
           asocomunalId: null,
           tipo: TipoJAC.BARRIO,
+          numeroPersoneriaJuridica: 'PJ-001',
           nombreCompleto: 'JAC Sin Asocomunal',
         } as unknown as CreateJACDto;
 
@@ -244,6 +252,7 @@ describe('JacService.create', () => {
         const dto: CreateJACDto = {
           asocomunalId: 0,
           tipo: TipoJAC.BARRIO,
+          numeroPersoneriaJuridica: 'PJ-001',
           nombreCompleto: 'JAC Con Asocomunal Cero',
         };
 
@@ -264,6 +273,7 @@ describe('JacService.create', () => {
         const dtoInvalido = {
           asocomunalId: -5,
           tipo: TipoJAC.VEREDA,
+          numeroPersoneriaJuridica: 'PJ-001',
           nombreCompleto: 'JAC Con ID Negativo',
         } as CreateJACDto;
 
@@ -290,6 +300,7 @@ describe('JacService.create', () => {
         const dto: CreateJACDto = {
           asocomunalId: 5,
           tipo: TipoJAC.BARRIO,
+          numeroPersoneriaJuridica: 'PJ-001',
           nombreCompleto: 'JAC Barrio Centro',
         };
 
@@ -311,6 +322,7 @@ describe('JacService.create', () => {
         const dto: CreateJACDto = {
           asocomunalId: 5,
           tipo: TipoJAC.VEREDA,
+          numeroPersoneriaJuridica: 'PJ-001',
           nombreCompleto: 'JAC Vereda Rural',
         };
 
@@ -387,6 +399,7 @@ describe('JacService.create', () => {
         const dto: CreateJACDto = {
           asocomunalId: 7,
           tipo: TipoJAC.BARRIO,
+          numeroPersoneriaJuridica: 'PJ-001',
           nombreCompleto: 'JAC',
         };
 
@@ -407,6 +420,7 @@ describe('JacService.create', () => {
         const dto: CreateJACDto = {
           asocomunalId: 7,
           tipo: TipoJAC.VEREDA,
+          numeroPersoneriaJuridica: 'PJ-001',
           nombreCompleto: nombreTipico,
         };
 
@@ -427,6 +441,7 @@ describe('JacService.create', () => {
         const dto: CreateJACDto = {
           asocomunalId: 7,
           tipo: TipoJAC.BARRIO,
+          numeroPersoneriaJuridica: 'PJ-001',
           nombreCompleto: nombreMaximo,
         };
 
@@ -446,6 +461,7 @@ describe('JacService.create', () => {
         const dtoInvalido: CreateJACDto = {
           asocomunalId: 7,
           tipo: TipoJAC.BARRIO,
+          numeroPersoneriaJuridica: 'PJ-001',
           nombreCompleto: '',
         };
 
@@ -460,6 +476,7 @@ describe('JacService.create', () => {
         const dtoInvalido: CreateJACDto = {
           asocomunalId: 7,
           tipo: TipoJAC.BARRIO,
+          numeroPersoneriaJuridica: 'PJ-001',
           nombreCompleto: 'JA',
         };
 
@@ -475,6 +492,7 @@ describe('JacService.create', () => {
         const dtoInvalido: CreateJACDto = {
           asocomunalId: 7,
           tipo: TipoJAC.BARRIO,
+          numeroPersoneriaJuridica: 'PJ-001',
           nombreCompleto: nombreExcedido,
         };
 
@@ -489,6 +507,7 @@ describe('JacService.create', () => {
         const dtoInvalido = {
           asocomunalId: 7,
           tipo: TipoJAC.BARRIO,
+          numeroPersoneriaJuridica: 'PJ-001',
           nombreCompleto: null,
         } as unknown as CreateJACDto;
 
@@ -503,6 +522,7 @@ describe('JacService.create', () => {
         const dtoInvalido = {
           asocomunalId: 7,
           tipo: TipoJAC.BARRIO,
+          numeroPersoneriaJuridica: 'PJ-001',
           nombreCompleto: 123 as unknown as string,
         } as unknown as CreateJACDto;
 
@@ -532,6 +552,7 @@ describe('JacService.create', () => {
         const dto: CreateJACDto = {
           asocomunalId: 10,
           tipo: TipoJAC.BARRIO,
+          numeroPersoneriaJuridica: 'PJ-001',
           nombreCompleto: 'JAC Barrio Complete',
           // nombreCorto no se proporciona
         };
@@ -551,6 +572,7 @@ describe('JacService.create', () => {
         const dto: CreateJACDto = {
           asocomunalId: 10,
           tipo: TipoJAC.VEREDA,
+          numeroPersoneriaJuridica: 'PJ-001',
           nombreCompleto: 'JAC Vereda Completo',
           nombreCorto: '',
         };
@@ -571,6 +593,7 @@ describe('JacService.create', () => {
         const dto: CreateJACDto = {
           asocomunalId: 10,
           tipo: TipoJAC.BARRIO,
+          numeroPersoneriaJuridica: 'PJ-001',
           nombreCompleto: 'JAC Barrio Centro Completo',
           nombreCorto: nombreCortoTipico,
         };
@@ -591,6 +614,7 @@ describe('JacService.create', () => {
         const dto: CreateJACDto = {
           asocomunalId: 10,
           tipo: TipoJAC.VEREDA,
+          numeroPersoneriaJuridica: 'PJ-001',
           nombreCompleto: 'JAC Vereda Completo',
           nombreCorto: nombreCortoMaximo,
         };
@@ -612,6 +636,7 @@ describe('JacService.create', () => {
         const dtoInvalido: CreateJACDto = {
           asocomunalId: 10,
           tipo: TipoJAC.BARRIO,
+          numeroPersoneriaJuridica: 'PJ-001',
           nombreCompleto: 'JAC Barrio Completo',
           nombreCorto: nombreCortoExcedido,
         };
@@ -627,6 +652,7 @@ describe('JacService.create', () => {
         const dtoInvalido = {
           asocomunalId: 10,
           tipo: TipoJAC.BARRIO,
+          numeroPersoneriaJuridica: 'PJ-001',
           nombreCompleto: 'JAC Barrio Completo',
           nombreCorto: 12345 as unknown as string,
         };
@@ -657,6 +683,7 @@ describe('JacService.create', () => {
         const dto: CreateJACDto = {
           asocomunalId: 15,
           tipo: TipoJAC.BARRIO,
+          numeroPersoneriaJuridica: 'PJ-001',
           nombreCompleto: 'JAC Sin RUC',
           // numeroRUC no se proporciona
         };
@@ -676,6 +703,7 @@ describe('JacService.create', () => {
         const dto: CreateJACDto = {
           asocomunalId: 15,
           tipo: TipoJAC.VEREDA,
+          numeroPersoneriaJuridica: 'PJ-001',
           nombreCompleto: 'JAC Vereda Con RUC Vacío',
           numeroRUC: '',
         };
@@ -695,6 +723,7 @@ describe('JacService.create', () => {
         const dto: CreateJACDto = {
           asocomunalId: 15,
           tipo: TipoJAC.BARRIO,
+          numeroPersoneriaJuridica: 'PJ-001',
           nombreCompleto: 'JAC Barrio Con RUC',
           numeroRUC: 'RUC-123-456-789',
         };
@@ -715,6 +744,7 @@ describe('JacService.create', () => {
         const dto: CreateJACDto = {
           asocomunalId: 15,
           tipo: TipoJAC.VEREDA,
+          numeroPersoneriaJuridica: 'PJ-001',
           nombreCompleto: 'JAC Vereda Con RUC Máximo',
           numeroRUC: numeroRUCMaximo,
         };
@@ -736,6 +766,7 @@ describe('JacService.create', () => {
         const dtoInvalido: CreateJACDto = {
           asocomunalId: 15,
           tipo: TipoJAC.BARRIO,
+          numeroPersoneriaJuridica: 'PJ-001',
           nombreCompleto: 'JAC Barrio Con RUC Excedido',
           numeroRUC: numeroRUCExcedido,
         };
@@ -751,6 +782,7 @@ describe('JacService.create', () => {
         const dtoInvalido = {
           asocomunalId: 15,
           tipo: TipoJAC.BARRIO,
+          numeroPersoneriaJuridica: 'PJ-001',
           nombreCompleto: 'JAC Barrio Con RUC Inválido',
           numeroRUC: 123456 as unknown as string,
         };
@@ -772,6 +804,7 @@ describe('JacService.create', () => {
         const dto: CreateJACDto = {
           asocomunalId: 1,
           tipo: TipoJAC.BARRIO,
+          numeroPersoneriaJuridica: 'PJ-001',
           nombreCompleto: 'JAC',
           nombreCorto: '',
           numeroRUC: '',
@@ -795,6 +828,7 @@ describe('JacService.create', () => {
         const dto: CreateJACDto = {
           asocomunalId: Number.MAX_SAFE_INTEGER,
           tipo: TipoJAC.VEREDA,
+          numeroPersoneriaJuridica: 'PJ-001',
           nombreCompleto: 'N'.repeat(100),
           nombreCorto: 'C'.repeat(100),
           numeroRUC: 'R'.repeat(30),
@@ -818,6 +852,7 @@ describe('JacService.create', () => {
         const dto: CreateJACDto = {
           asocomunalId: 50,
           tipo: TipoJAC.BARRIO,
+          numeroPersoneriaJuridica: 'PJ-001',
           nombreCompleto: 'JAC Completo Sin Opcionales',
           // nombreCorto y numeroRUC no se proporcionan
         };
