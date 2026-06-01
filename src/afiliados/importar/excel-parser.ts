@@ -157,7 +157,7 @@ function estaMarcada(valor: ExcelJS.CellValue): boolean {
  * - 3 palabras → primer nombre, los demás como apellido.
  * - 4+ palabras → primeras 2 como nombre, el resto como apellido.
  */
-function parsearNombre(nombreCompleto: string): { nombre: string; apellido: string } {
+export function parsearNombre(nombreCompleto: string): { nombre: string; apellido: string } {
   const partes = nombreCompleto.trim().split(/\s+/).filter(Boolean);
   if (partes.length === 0) return { nombre: '', apellido: '' };
   if (partes.length === 1) return { nombre: partes[0], apellido: '' };
@@ -174,7 +174,7 @@ function parsearNombre(nombreCompleto: string): { nombre: string; apellido: stri
  * no es obligatoria. Si viene con formato inválido o representa una fecha
  * irreal (31/02/2000, etc.), retorna `valido: false` con el motivo.
  */
-function extraerFechaNacimiento(
+export function extraerFechaNacimiento(
   valor: ExcelJS.CellValue,
 ): { valido: boolean; fecha: Date | null; motivo?: string } {
   if (valor === null || valor === undefined) {
@@ -228,7 +228,7 @@ function extraerFechaNacimiento(
 /**
  * Verifica que la cédula esté compuesta exclusivamente por dígitos.
  */
-function validarCedulaFormato(cedula: string): { valido: boolean; motivo?: string } {
+export function validarCedulaFormato(cedula: string): { valido: boolean; motivo?: string } {
   if (!/^\d+$/.test(cedula)) {
     return {
       valido: false,
@@ -242,7 +242,7 @@ function validarCedulaFormato(cedula: string): { valido: boolean; motivo?: strin
  * Verifica que el teléfono no contenga letras.
  * Se permiten dígitos, espacios y los separadores comunes `+`, `-`, `(`, `)`.
  */
-function validarTelefonoFormato(
+export function validarTelefonoFormato(
   telefono: string,
 ): { valido: boolean; motivo?: string } {
   if (/[A-Za-z]/.test(telefono)) {
@@ -302,7 +302,7 @@ function extraerDiscapacitado(
  * Convierte "DE: deportes y juventud" → "Comisión de Deportes Y Juventud".
  * Capitaliza cada palabra del nombre de la comisión.
  */
-function nombreComision(textoDespuesDe: string): string {
+export function nombreComision(textoDespuesDe: string): string {
   const limpio = textoDespuesDe.trim();
   if (!limpio) return '';
   const titulado = limpio

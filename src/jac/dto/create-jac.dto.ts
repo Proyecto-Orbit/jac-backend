@@ -22,7 +22,10 @@ import { TipoJAC } from '../entities/jac.entity';
  * - La asociación con una Asocomunal es obligatoria.
  * - El `tipo` (barrio o vereda) es obligatorio porque determina el
  *   umbral mínimo de afiliados para mantenerla activa.
- * - El `numeroRUC` es opcional.
+ * - El `numeroRUC` y el `nit` son opcionales.
+ * - El `numeroPersoneriaJuridica` es obligatorio, pero esa obligatoriedad
+ *   se valida en la capa de servicio (no con decoradores) porque la
+ *   migración de datos reales no incluye este campo.
  */
 export class CreateJACDto {
   /**
@@ -74,4 +77,27 @@ export class CreateJACDto {
   @IsString()
   @MaxLength(30, { message: 'El número de RUC no puede superar 30 caracteres' })
   numeroRUC?: string;
+
+  /**
+   * NIT de la JAC. Opcional.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(30, { message: 'El NIT no puede superar 30 caracteres' })
+  nit?: string;
+
+  /**
+   * Número de personería jurídica de la JAC.
+   *
+   * @remarks
+   * Obligatorio en la creación, pero la validación de presencia se hace en
+   * el servicio (no con decoradores) para no romper la migración de datos
+   * reales, donde este campo puede venir vacío.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(50, {
+    message: 'El número de personería jurídica no puede superar 50 caracteres',
+  })
+  numeroPersoneriaJuridica?: string;
 }

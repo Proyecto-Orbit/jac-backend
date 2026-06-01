@@ -114,6 +114,27 @@ export class JAC {
   numeroRUC!: string | null;
 
   /**
+   * NIT (Número de Identificación Tributaria) de la JAC.
+   *
+   * @remarks
+   * Opcional a nivel de base de datos: la migración de datos reales no
+   * incluye este valor para las JAC existentes. La obligatoriedad en la
+   * creación se valida en la capa de servicio, no aquí.
+   */
+  @Column({ name: 'nit', type: 'varchar', length: 30, nullable: true })
+  nit!: string | null;
+
+  /**
+   * Número de personería jurídica de la JAC.
+   *
+   * @remarks
+   * Opcional a nivel de base de datos por la misma razón que el NIT.
+   * Es obligatorio al crear una JAC nueva, regla validada en el servicio.
+   */
+  @Column({ name: 'numero_personeria_juridica', type: 'varchar', length: 50, nullable: true })
+  numeroPersoneriaJuridica!: string | null;
+
+  /**
    * Relación ManyToOne opcional hacia {@link Asocomunal}.
    *
    * @remarks

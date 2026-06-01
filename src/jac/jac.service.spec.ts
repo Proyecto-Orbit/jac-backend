@@ -3,6 +3,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JacService } from './jac.service';
 import { EstadoJAC, JAC, TipoJAC } from './entities/jac.entity';
+import { Persona } from '../afiliados/entities/persona.entity';
 import { CreateJACDto } from './dto/create-jac.dto';
 import { RabbitMQService } from '../rabbitmq/rabbitmq.service';
 import { AsocomunalService } from '../asocomunal/asocomunal.service';
@@ -30,6 +31,11 @@ describe('JacService.create', () => {
       save: jest.fn(),
     };
 
+    const personaRepositoryMock: Partial<jest.Mocked<Repository<Persona>>> = {
+      find: jest.fn().mockResolvedValue([]),
+      update: jest.fn().mockResolvedValue({ affected: 0 } as never),
+    };
+
     const rabbitMQServiceMock: Partial<jest.Mocked<RabbitMQService>> = {
       notifyJACCreated: jest.fn().mockResolvedValue(undefined),
       notifyJACUpdated: jest.fn().mockResolvedValue(undefined),
@@ -44,6 +50,7 @@ describe('JacService.create', () => {
       providers: [
         JacService,
         { provide: getRepositoryToken(JAC), useValue: repositoryMock },
+        { provide: getRepositoryToken(Persona), useValue: personaRepositoryMock },
         { provide: RabbitMQService, useValue: rabbitMQServiceMock },
         { provide: AsocomunalService, useValue: asocomunalServiceMock },
       ],

@@ -46,6 +46,12 @@ export class JACResponseDto {
   /** Número de RUC de la JAC. */
   numeroRUC!: string | null;
 
+  /** NIT de la JAC. */
+  nit!: string | null;
+
+  /** Número de personería jurídica de la JAC. */
+  numeroPersoneriaJuridica!: string | null;
+
   /**
    * Datos de la Asocomunal vinculada.
    * - `null` → JAC sin Asocomunal asignada.
@@ -67,6 +73,8 @@ export class JACResponseDto {
       nombreCorto: jac.nombreCorto,
       nombreCompleto: jac.nombreCompleto,
       numeroRUC: jac.numeroRUC,
+      nit: jac.nit,
+      numeroPersoneriaJuridica: jac.numeroPersoneriaJuridica,
     };
 
     if (jac.asocomunal !== undefined) {

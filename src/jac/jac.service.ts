@@ -1,4 +1,9 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { EstadoJAC, JAC, TipoJAC } from './entities/jac.entity';
@@ -44,6 +49,18 @@ export class JacService {
    * @returns La JAC recién creada como {@link JACResponseDto}.
    */
   async create(createJACDto: CreateJACDto): Promise<JACResponseDto> {
+    // El número de personería jurídica es obligatorio al crear una JAC.
+    // Se valida aquí (no con decoradores) porque la migración de datos
+    // reales carga JACs sin este campo.
+    if (
+      !createJACDto.numeroPersoneriaJuridica ||
+      createJACDto.numeroPersoneriaJuridica.trim() === ''
+    ) {
+      throw new BadRequestException(
+        'El número de personería jurídica es obligatorio',
+      );
+    }
+
     const jac = this.jacRepository.create({
       ...createJACDto,
       estado: EstadoJAC.INACTIVA,
