@@ -21,6 +21,7 @@ import {
   AlertasQueryDto,
   AlertasResumen,
 } from './dto/alertas.dto';
+import { EstadosJacResumen } from './dto/estados-resumen.dto';
 import { Auth } from '../auth/auth.decorator';
 import { Role } from '../auth/role.enum';
 
@@ -69,6 +70,18 @@ async getPublicStats() {
 
   return stats;
 }
+
+  /**
+   * `GET /jac/public/estados/resumen`
+   *
+   * Resumen público de conteos de JAC por estado organizativo
+   * (activa, inactiva, cancelada y total). Sin PII y sin token.
+   */
+  @Get('public/estados/resumen')
+  getEstadosResumen(): Promise<EstadosJacResumen> {
+    return this.jacService.getEstadosResumen();
+  }
+
   /**
    * `GET /jac/public/buscar`
    *
