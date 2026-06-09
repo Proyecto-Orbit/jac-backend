@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { EstadoJAC, JAC, TipoJAC } from './entities/jac.entity';
 import { CreateJACDto } from './dto/create-jac.dto';
 import { UpdateJACDto } from './dto/update-jac.dto';
@@ -108,6 +108,14 @@ export class JacService {
       relations: ['asocomunal', 'personas'],
       order: { nombreCompleto: 'ASC' },
       take: limite,
+    });
+    return JacListItemDto.fromEntities(jacs);
+  }
+
+  async findAllWithAsocomunalNull(): Promise<JacListItemDto[]> {
+    const jacs = await this.jacRepository.find({
+      where: { asocomunalId: IsNull() }, //  usar IsNull() de TypeORM
+      relations: ['personas'],
     });
     return JacListItemDto.fromEntities(jacs);
   }
@@ -297,15 +305,15 @@ export class JacService {
       select: ['id', 'nombreCorto', 'tipo'],
     });
     console.log(
-      jacs.slice(0, 20).map(j => ({
+      jacs.slice(0, 20).map((j) => ({
         nombre: j.nombreCorto,
         tipo: j.tipo,
         tipoReal: typeof j.tipo,
       })),
     );
 
-    const urbanCount = jacs.filter(jac => jac.tipo === TipoJAC.BARRIO).length;
-    const ruralCount = jacs.filter(jac => jac.tipo === TipoJAC.VEREDA).length;
+    const urbanCount = jacs.filter((jac) => jac.tipo === TipoJAC.BARRIO).length;
+    const ruralCount = jacs.filter((jac) => jac.tipo === TipoJAC.VEREDA).length;
 
     const asocomunales = await this.asocomunalService.findAll();
     const totalAsocomunales = asocomunales.length;
@@ -394,7 +402,8 @@ export class JacService {
    * @returns Página {@link AlertasJacPage}.
    */
   async getAlertas(query: AlertasQueryDto): Promise<AlertasJacPage> {
-    const page = query.page && query.page > 0 ? query.page : ALERTAS_PAGE_DEFAULT;
+    const page =
+      query.page && query.page > 0 ? query.page : ALERTAS_PAGE_DEFAULT;
     const limitSolicitado =
       query.limit && query.limit > 0 ? query.limit : ALERTAS_LIMIT_DEFAULT;
     const limit = Math.min(limitSolicitado, ALERTAS_LIMIT_MAX);
@@ -480,7 +489,9 @@ export class JacService {
       minimoAfiliados: Number(row.minimoAfiliados),
       estado: this.mapEstadoOrganizativo(row.estado),
       numeroRUC:
-        row.numeroRUC && String(row.numeroRUC).trim() !== '' ? row.numeroRUC : null,
+        row.numeroRUC && String(row.numeroRUC).trim() !== ''
+          ? row.numeroRUC
+          : null,
       nit: row.nit && String(row.nit).trim() !== '' ? row.nit : null,
     }));
 

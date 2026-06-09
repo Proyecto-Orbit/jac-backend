@@ -90,6 +90,14 @@ async getPublicStats() {
   ): Promise<JacListItemDto[]> {
     return this.jacService.findAllPublic(limite);
   }
+  
+  
+  @Auth(Role.ADMIN, Role.OPERADOR)
+  @Get('without-asocomunal')
+  findAllWithoutAsocomunal(): Promise<JacListItemDto[]> {
+    return this.jacService.findAllWithAsocomunalNull();
+  }
+
 
   /**
    * `GET /jac/public/:id`
@@ -111,13 +119,14 @@ async getPublicStats() {
    *
    * @returns Array de JACs activas.
    */
+  
   @Auth(Role.ADMIN, Role.OPERADOR)
   @Get()
   findAll(
     @Query('limite', new DefaultValuePipe(100), ParseIntPipe) limite: number,
-  ): Promise<JacListItemDto[]> {
-    return this.jacService.findAll(limite);
-  }
+    ): Promise<JacListItemDto[]> {
+      return this.jacService.findAll(limite);
+    }
 
   /**
    * `GET /jac/buscar`
