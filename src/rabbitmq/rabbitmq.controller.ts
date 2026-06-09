@@ -5,6 +5,7 @@ import {
   AsocomunalEventPayload,
 } from '../asocomunal/asocomunal.service';
 import { JacService } from '../jac/jac.service';
+import { AfiliadosService } from '../afiliados/afiliados.service';
 
 /**
  * Payload de un evento de Asocomunal recibido por RabbitMQ.
@@ -35,6 +36,7 @@ export class RabbitMQController {
   constructor(
     private readonly asocomunalService: AsocomunalService,
     private readonly jacService: JacService,
+    private readonly afiliadosService: AfiliadosService,
   ) {}
 
   /**
@@ -118,6 +120,57 @@ export class RabbitMQController {
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : 'Error desconocido';
       this.logger.error(`Error aplicando solicitud aprobada de JAC: ${msg}`);
+    }
+  }
+
+  /**
+   * Consume el patrón `solicitud.aprobada.afiliado` emitido por el MS de Auditoría
+   * cuando un admin aprueba una solicitud de un operador sobre un afiliado.
+   *
+   * @remarks
+   * Aplica el cambio sobre la tabla PERSONA mediante {@link AfiliadosService}:
+   * - `CREAR`    → crea el afiliado con el payload propuesto.
+   * - `EDITAR`   → actualiza el afiliado `entidadId` con los campos propuestos.
+   * - `ELIMINAR` → desvincula al afiliado `entidadId` de su JAC.
+   *
+   * Los errores se loguean sin relanzar para no bloquear la cola.
+   */
+  @EventPattern('solicitud.aprobada.afiliado')
+  async handleSolicitudAprobadaAfiliado(@Payload() data: any): Promise<void> {
+    this.logger.log(`Solicitud de Afiliado aprobada recibida: acción=${data.tipoAccion}`);
+
+    try {
+      const { tipoAccion, datos, entidadId } = data;
+      const datoLimpio = this.limpiarPayload(datos);
+
+      switch (tipoAccion) {
+        case 'CREAR':
+          await this.afiliadosService.create(datoLimpio);
+          this.logger.log(
+            `Nuevo afiliado creado tras aprobación: "${datoLimpio.nombre} ${datoLimpio.apellido}"`,
+          );
+          break;
+
+        case 'EDITAR':
+          if (entidadId) {
+            await this.afiliadosService.update(Number(entidadId), datoLimpio);
+            this.logger.log(`Afiliado id=${entidadId} actualizado tras aprobación`);
+          }
+          break;
+
+        case 'ELIMINAR':
+          if (entidadId) {
+            await this.afiliadosService.remove(Number(entidadId));
+            this.logger.log(`Afiliado id=${entidadId} eliminado tras aprobación`);
+          }
+          break;
+
+        default:
+          this.logger.warn(`Tipo de acción de solicitud de afiliado desconocida: ${tipoAccion}`);
+      }
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Error desconocido';
+      this.logger.error(`Error aplicando solicitud aprobada de Afiliado: ${msg}`);
     }
   }
 

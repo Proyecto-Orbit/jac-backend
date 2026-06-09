@@ -47,7 +47,7 @@ export class JacController {
    * @param createJACDto - Cuerpo de la petición con los datos de la JAC.
    * @returns La JAC creada.
    */
-  @Auth(Role.ADMIN)
+  @Auth(Role.ADMIN, Role.OPERADOR)
   @Post()
   create(@Body() createJACDto: CreateJACDto): Promise<JACResponseDto> {
     return this.jacService.create(createJACDto);

@@ -79,19 +79,19 @@ export class AfiliadosController {
     );
   }
 
-  @Auth(Role.ADMIN)
+  @Auth(Role.ADMIN, Role.OPERADOR)
   @Get()
   findAll(): Promise<PersonaResponseDto[]> {
     return this.afiliadosService.findAll();
   }
 
-  @Auth(Role.ADMIN)
+  @Auth(Role.ADMIN, Role.OPERADOR)
   @Get('catalogo/cargos')
   findAllCargos(): Promise<Cargo[]> {
     return this.afiliadosService.findAllCargos();
   }
 
-  @Auth(Role.ADMIN)
+  @Auth(Role.ADMIN, Role.OPERADOR)
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number): Promise<PersonaResponseDto> {
     return this.afiliadosService.findOne(id);
