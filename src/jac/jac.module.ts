@@ -7,6 +7,7 @@ import { JacController } from './jac.controller';
 import { RabbitMQModule } from '../rabbitmq/rabbitmq.module';
 import { RabbitMQController } from '../rabbitmq/rabbitmq.controller';
 import { AsocomunalModule } from '../asocomunal/asocomunal.module';
+import { AfiliadosModule } from '../afiliados/afiliados.module';
 
 /**
  * Módulo principal de JAC.
@@ -25,6 +26,7 @@ import { AsocomunalModule } from '../asocomunal/asocomunal.module';
     TypeOrmModule.forFeature([JAC, Persona]),
     RabbitMQModule,
     AsocomunalModule,
+    AfiliadosModule,
   ],
   controllers: [
     JacController,

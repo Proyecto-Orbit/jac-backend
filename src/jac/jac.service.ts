@@ -29,6 +29,7 @@ import {
   ALERTAS_PAGE_DEFAULT,
   CategoriaAlerta,
 } from './dto/alertas.dto';
+import { EstadosJacResumen } from './dto/estados-resumen.dto';
 import { RabbitMQService } from '../rabbitmq/rabbitmq.service';
 import { AsocomunalService } from '../asocomunal/asocomunal.service';
 import { Persona } from '../afiliados/entities/persona.entity';
@@ -285,6 +286,41 @@ export class JacService {
     }
 
     return JacPublicItemDto.fromEntity(jac);
+  }
+
+  /**
+   * Resumen público de conteos de JAC por estado organizativo.
+   *
+   * @remarks
+   * Cuenta TODAS las JAC (sin filtrar por estado) agrupando por `estado`.
+   * No expone PII. Pensado para el dashboard público.
+   *
+   * @returns {@link EstadosJacResumen} con activa, inactiva, cancelada y total.
+   */
+  async getEstadosResumen(): Promise<EstadosJacResumen> {
+    const rows = await this.jacRepository
+      .createQueryBuilder('jac')
+      .select('jac.estado', 'estado')
+      .addSelect('COUNT(*)', 'count')
+      .groupBy('jac.estado')
+      .getRawMany<{ estado: string; count: string }>();
+
+    const resumen: EstadosJacResumen = {
+      activa: 0,
+      inactiva: 0,
+      cancelada: 0,
+      total: 0,
+    };
+
+    for (const row of rows) {
+      const cantidad = parseInt(row.count, 10) || 0;
+      if (row.estado === EstadoJAC.ACTIVA) resumen.activa = cantidad;
+      else if (row.estado === EstadoJAC.INACTIVA) resumen.inactiva = cantidad;
+      else if (row.estado === EstadoJAC.CANCELADA) resumen.cancelada = cantidad;
+    }
+
+    resumen.total = resumen.activa + resumen.inactiva + resumen.cancelada;
+    return resumen;
   }
 
   async getPublicStats() {
